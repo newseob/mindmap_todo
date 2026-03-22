@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
@@ -54,13 +54,63 @@
       overflow: hidden;
     }
 
-    .canvas-toolbar {
+    .project-toolbar {
       position: absolute;
       top: 22px;
-      right: 22px;
+      left: 22px;
       display: flex;
+      flex-direction: column;
       gap: 10px;
       z-index: 2;
+    }
+
+    .project-toolbar .project-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .project-toolbar .project-title {
+      font-size: 0.88rem;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .project-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .project-actions button {
+      padding: 7px 10px;
+      font-size: 0.82rem;
+    }
+
+    .project-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      max-width: min(520px, calc(100vw - 44px));
+    }
+
+    .project-chip {
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(124, 106, 88, 0.16);
+      background: rgba(255, 250, 242, 0.9);
+      color: var(--text);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 10px 25px rgba(55, 37, 24, 0.08);
+    }
+
+    .project-chip:hover {
+      background: rgba(248, 232, 214, 0.98);
+    }
+
+    .project-chip.active {
+      background: var(--accent);
+      color: #fffaf4;
+      border-color: transparent;
     }
 
     .bottom-bar {
@@ -299,13 +349,30 @@
         width: auto;
         max-height: 32vh;
       }
+
+      .project-toolbar {
+        top: 16px;
+        left: 16px;
+        right: 16px;
+      }
+
+      .project-list {
+        max-width: none;
+      }
     }
   </style>
 </head>
 <body>
   <main class="canvas-wrap">
-    <div class="canvas-toolbar">
-      <button id="centerBtn" class="secondary">중앙 정렬</button>
+    <div class="project-toolbar">
+      <div class="project-head">
+        <span class="project-title">프로젝트</span>
+        <div class="project-actions">
+          <button id="addProjectBtn" class="secondary" type="button">추가</button>
+          <button id="deleteProjectBtn" class="secondary" type="button">삭제</button>
+        </div>
+      </div>
+      <div id="projectList" class="project-list"></div>
     </div>
 
     <svg id="mindmap" viewBox="0 0 1400 900" aria-label="mind map canvas">
@@ -332,7 +399,7 @@
   <script>
     const STORAGE_KEY = "mind-map-studio-json";
     const PAN_SENSITIVITY = 1.35;
-    const STORAGE_VERSION = 1;
+    const STORAGE_VERSION = 2;
     const NODE_WIDTH = 140;
     const NODE_HEIGHT = 56;
     const ROOT_RADIUS = 42;
@@ -367,40 +434,13 @@
       "#d0e3ea"
     ];
 
-    const sampleData = {
+        const sampleData = {
       id: crypto.randomUUID(),
       label: "새 프로젝트",
       x: 700,
       y: 420,
-      children: [
-        {
-          id: crypto.randomUUID(),
-          label: "핵심 기능",
-          x: 980,
-          y: 250,
-          children: [
-            { id: crypto.randomUUID(), label: "노드 추가", x: 1180, y: 180, children: [] },
-            { id: crypto.randomUUID(), label: "드래그 이동", x: 1180, y: 270, children: [] }
-          ]
-        },
-        {
-          id: crypto.randomUUID(),
-          label: "디자인",
-          x: 420,
-          y: 280,
-          children: [
-            { id: crypto.randomUUID(), label: "색감", x: 220, y: 210, children: [] },
-            { id: crypto.randomUUID(), label: "레이아웃", x: 220, y: 330, children: [] }
-          ]
-        },
-        {
-          id: crypto.randomUUID(),
-          label: "정리할 아이디어",
-          x: 720,
-          y: 670,
-          children: []
-        }
-      ]
+      today: false,
+      children: []
     };
 
     const svg = document.getElementById("mindmap");
@@ -410,8 +450,12 @@
     const nodeLabelInput = document.getElementById("nodeLabel");
     const todayBtn = document.getElementById("todayBtn");
     const todayList = document.getElementById("todayList");
+    const projectList = document.getElementById("projectList");
+    const addProjectBtn = document.getElementById("addProjectBtn");
+    const deleteProjectBtn = document.getElementById("deleteProjectBtn");
 
-    let state = loadState();
+    let appState = loadState();
+    let state = getActiveProject().data;
     let selectedId = state.id;
     let scale = 1;
     let translate = { x: 0, y: 0 };
@@ -420,18 +464,21 @@
 
     function loadState() {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (!saved) return normalizeTree(structuredClone(sampleData));
+      if (!saved) return createDefaultProjectsState();
       try {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.version === STORAGE_VERSION && parsed.data?.id) {
-          return normalizeTree(parsed.data);
+        if (parsed && parsed.version === STORAGE_VERSION && Array.isArray(parsed.projects)) {
+          return normalizeProjectsState(parsed);
+        }
+        if (parsed?.data?.id) {
+          return createProjectsStateFromTree(parsed.data);
         }
         if (parsed?.id) {
-          return normalizeTree(parsed);
+          return createProjectsStateFromTree(parsed);
         }
-        return normalizeTree(structuredClone(sampleData));
+        return createDefaultProjectsState();
       } catch {
-        return normalizeTree(structuredClone(sampleData));
+        return createDefaultProjectsState();
       }
     }
 
@@ -439,7 +486,8 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         version: STORAGE_VERSION,
         savedAt: new Date().toISOString(),
-        data: state
+        activeProjectId: appState.activeProjectId,
+        projects: appState.projects
       }));
     }
 
@@ -454,6 +502,76 @@
       node.children = Array.isArray(node.children) ? node.children : [];
       node.children.forEach(normalizeTree);
       return node;
+    }
+
+    function createProjectData() {
+      return normalizeTree(structuredClone(sampleData));
+    }
+
+    function createProject(name = `프로젝트 ${Date.now()}`) {
+      const data = createProjectData();
+      data.label = name;
+      return {
+        id: crypto.randomUUID(),
+        name,
+        data
+      };
+    }
+
+    function createDefaultProjectsState() {
+      const firstProject = createProject("프로젝트 1");
+      return {
+        activeProjectId: firstProject.id,
+        projects: [firstProject]
+      };
+    }
+
+    function createProjectsStateFromTree(tree) {
+      const firstProject = {
+        id: crypto.randomUUID(),
+        name: "프로젝트 1",
+        data: normalizeTree(tree)
+      };
+      return {
+        activeProjectId: firstProject.id,
+        projects: [firstProject]
+      };
+    }
+
+    function normalizeProjectsState(rawState) {
+      const projects = rawState.projects
+        .filter((project) => project?.data?.id)
+        .map((project, index) => ({
+          id: project.id || crypto.randomUUID(),
+          name: project.name || `프로젝트 ${index + 1}`,
+          data: normalizeTree(project.data)
+        }));
+
+      if (!projects.length) {
+        return createDefaultProjectsState();
+      }
+
+      const activeProjectId = projects.some((project) => project.id === rawState.activeProjectId)
+        ? rawState.activeProjectId
+        : projects[0].id;
+
+      return { activeProjectId, projects };
+    }
+
+    function getProjectTitle(project) {
+      return project?.data?.label?.trim() || project?.name || "프로젝트";
+    }
+
+    function getActiveProject() {
+      const activeProject = appState.projects.find((project) => project.id === appState.activeProjectId);
+      return activeProject || appState.projects[0];
+    }
+
+    function syncActiveProjectState() {
+      state = getActiveProject().data;
+      if (!findNode(selectedId, state)) {
+        selectedId = state.id;
+      }
     }
 
     function collectSubtree(node, list = []) {
@@ -719,6 +837,7 @@
 
       applyViewport();
       syncSelectionUI();
+      renderProjectList();
       renderTodayList();
       saveState();
     }
@@ -729,6 +848,54 @@
       todayBtn.classList.toggle("active", Boolean(current?.today));
       todayBtn.classList.toggle("secondary", !current?.today);
       todayBtn.textContent = current?.today ? "오늘할일 해제" : "오늘할일";
+      deleteProjectBtn.disabled = appState.projects.length <= 1;
+    }
+
+    function renderProjectList() {
+      const activeProjectId = getActiveProject().id;
+      projectList.innerHTML = appState.projects.map((project) => `
+        <button type="button" class="project-chip${project.id === activeProjectId ? " active" : " secondary"}" data-project-id="${project.id}">${getProjectTitle(project)}</button>
+      `).join("");
+    }
+
+    function switchProject(projectId) {
+      if (projectId === appState.activeProjectId) return;
+      const nextProject = appState.projects.find((project) => project.id === projectId);
+      if (!nextProject) return;
+      appState.activeProjectId = projectId;
+      syncActiveProjectState();
+      selectedId = state.id;
+      scale = 1;
+      centerOnNode(state.id);
+    }
+
+    function addProject() {
+      const defaultName = `프로젝트 ${appState.projects.length + 1}`;
+      const inputName = window.prompt("새 프로젝트 이름을 입력하세요.", defaultName);
+      if (inputName === null) return;
+      const nextProject = createProject(inputName.trim() || defaultName);
+      appState.projects.push(nextProject);
+      appState.activeProjectId = nextProject.id;
+      syncActiveProjectState();
+      selectedId = state.id;
+      scale = 1;
+      centerOnNode(state.id);
+    }
+
+    function deleteProject() {
+      if (appState.projects.length <= 1) {
+        window.alert("프로젝트는 최소 1개는 남아 있어야 합니다.");
+        return;
+      }
+      const activeProject = getActiveProject();
+      const shouldDelete = window.confirm(`"${getProjectTitle(activeProject)}" 프로젝트를 삭제할까요?`);
+      if (!shouldDelete) return;
+      appState.projects = appState.projects.filter((project) => project.id !== activeProject.id);
+      appState.activeProjectId = appState.projects[0].id;
+      syncActiveProjectState();
+      selectedId = state.id;
+      scale = 1;
+      centerOnNode(state.id);
     }
 
     function getTodayItems() {
@@ -791,6 +958,10 @@
     function renameNode() {
       const result = findNode(selectedId);
       if (!result) return;
+      const nextLabel = nodeLabelInput.value.trim() || "이름 없는 노드";
+      if (result.node.id === state.id) {
+        getActiveProject().name = nextLabel;
+      }
       result.node.label = nodeLabelInput.value.trim() || "이름 없는 노드";
       render();
     }
@@ -922,13 +1093,17 @@
     todayBtn.addEventListener("click", toggleToday);
     document.getElementById("addChildBtn").addEventListener("click", () => addChild(selectedId));
     document.getElementById("deleteBtn").addEventListener("click", () => deleteNode(selectedId));
-    document.getElementById("centerBtn").addEventListener("click", () => {
-      scale = 1;
-      centerOnNode(state.id);
-    });
+    addProjectBtn.addEventListener("click", addProject);
+    deleteProjectBtn.addEventListener("click", deleteProject);
 
     nodeLabelInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter") renameNode();
+    });
+
+    projectList.addEventListener("click", (event) => {
+      const projectButton = event.target.closest("[data-project-id]");
+      if (!projectButton) return;
+      switchProject(projectButton.dataset.projectId);
     });
 
     todayList.addEventListener("click", (event) => {
@@ -951,3 +1126,4 @@
   </script>
 </body>
 </html>
+
