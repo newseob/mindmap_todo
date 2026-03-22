@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#efe4d4">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="할일 마인드맵">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icons/icon-192.svg">
+  <title>Mind Map Studio</title>
+  <style>
+    :root {
+      --text: #2f241b;
+      --muted: #756656;
+      --accent: #d06f45;
+      --accent-strong: #a74826;
+      --shadow: 0 18px 45px rgba(55, 37, 24, 0.16);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow: hidden;
+      font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(246, 189, 96, 0.4), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(132, 165, 157, 0.45), transparent 24%),
+        linear-gradient(135deg, #f7f1e8 0%, #efe4d4 100%);
+    }
+
+    .canvas-wrap,
+    .canvas-wrap * {
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    input,
+    textarea {
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .canvas-toolbar {
+      position: absolute;
+      top: 22px;
+      right: 22px;
+      display: flex;
+      gap: 10px;
+      z-index: 2;
+    }
+
+    .bottom-bar {
+      position: absolute;
+      left: 50%;
+      bottom: 22px;
+      transform: translateX(-50%);
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: min(860px, calc(100vw - 32px));
+      padding: 14px;
+      border-radius: 22px;
+      background: rgba(255, 250, 242, 0.92);
+      border: 1px solid rgba(124, 106, 88, 0.16);
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow);
+    }
+
+    .bottom-bar .label {
+      min-width: 78px;
+      font-size: 0.9rem;
+      color: var(--muted);
+      order: 1;
+    }
+
+    input,
+    button {
+      font: inherit;
+    }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      width: 100%;
+      border: 1px solid rgba(124, 106, 88, 0.22);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--text);
+      order: 2;
+    }
+
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 8px 12px;
+      font-size: 0.92rem;
+      background: var(--accent);
+      color: #fffaf4;
+      cursor: pointer;
+      transition: transform 120ms ease, background 120ms ease;
+      box-shadow: 0 10px 25px rgba(55, 37, 24, 0.12);
+    }
+
+    button:hover {
+      background: var(--accent-strong);
+      transform: translateY(-1px);
+    }
+
+    button.secondary {
+      background: #dbc9b7;
+      color: var(--text);
+    }
+
+    button.secondary:hover {
+      background: #cbb29a;
+    }
+
+    #renameBtn {
+      order: 3;
+    }
+
+    #todayBtn {
+      order: 4;
+    }
+
+    #addChildBtn {
+      order: 5;
+    }
+
+    #deleteBtn {
+      order: 6;
+    }
+
+    svg {
+      width: 100%;
+      height: 100vh;
+      display: block;
+    }
+
+    .node text {
+      pointer-events: none;
+      fill: #fffdf8;
+      font-size: 14px;
+      font-weight: 600;
+      text-anchor: middle;
+      dominant-baseline: middle;
+    }
+
+    .node rect {
+      rx: 18;
+      ry: 18;
+      stroke: rgba(47, 36, 27, 0.18);
+      stroke-width: 1;
+      filter: drop-shadow(0 14px 18px rgba(49, 34, 22, 0.14));
+      transition: fill 140ms ease, stroke 140ms ease, stroke-width 140ms ease;
+    }
+
+    .node circle {
+      stroke: rgba(47, 36, 27, 0.18);
+      stroke-width: 1;
+      filter: drop-shadow(0 14px 18px rgba(49, 34, 22, 0.14));
+      transition: fill 140ms ease, stroke 140ms ease, stroke-width 140ms ease;
+    }
+
+    .node.selected rect {
+      stroke: #fff7ee;
+      stroke-width: 3;
+    }
+
+    .node.selected circle {
+      stroke: #fff7ee;
+      stroke-width: 3;
+    }
+
+    .node-badge {
+      pointer-events: none;
+    }
+
+    .link {
+      fill: none;
+      stroke: rgba(95, 78, 61, 0.62);
+      stroke-width: 3;
+      stroke-linecap: round;
+      transition: stroke 140ms ease, stroke-width 140ms ease;
+    }
+
+    .today-panel {
+      position: absolute;
+      right: 22px;
+      bottom: 112px;
+      z-index: 2;
+      width: min(320px, calc(100vw - 32px));
+      max-height: min(46vh, 420px);
+      overflow: auto;
+      padding: 14px 14px 12px;
+      border-radius: 20px;
+      background: rgba(255, 250, 242, 0.94);
+      border: 1px solid rgba(124, 106, 88, 0.16);
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow);
+    }
+
+    .today-panel h2 {
+      margin: 0 0 10px;
+      font-size: 0.98rem;
+    }
+
+    .today-panel .empty {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .today-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .today-item {
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(124, 106, 88, 0.12);
+    }
+
+    .today-item .path {
+      margin: 0 0 4px;
+      font-size: 0.76rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .today-item .task {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.4;
+    }
+
+    button.active {
+      background: var(--accent-strong);
+      color: #fffaf4;
+    }
+
+    @media (max-width: 960px) {
+      .bottom-bar {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        transform: none;
+        width: auto;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .bottom-bar .label {
+        min-width: 58px;
+        width: auto;
+        flex: 0 0 auto;
+        font-size: 0.82rem;
+      }
+
+      .bottom-bar input {
+        flex: 1 1 calc(100% - 66px);
+        width: auto;
+        min-width: 0;
+      }
+
+      .bottom-bar button {
+        flex: 1 1 calc(25% - 6px);
+        white-space: nowrap;
+        padding-inline: 9px;
+        font-size: 0.84rem;
+      }
+
+      .today-panel {
+        left: 16px;
+        right: 16px;
+        bottom: 146px;
+        width: auto;
+        max-height: 32vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="canvas-wrap">
+    <div class="canvas-toolbar">
+      <button id="centerBtn" class="secondary">중앙 정렬</button>
+    </div>
+
+    <svg id="mindmap" viewBox="0 0 1400 900" aria-label="mind map canvas">
+      <g id="viewport">
+        <g id="links"></g>
+        <g id="nodes"></g>
+      </g>
+    </svg>
+
+    <div class="bottom-bar">
+      <button id="todayBtn" class="secondary">오늘할일</button>
+      <span class="label">선택 노드</span>
+      <input id="nodeLabel" type="text" placeholder="노드 제목">
+      <button id="renameBtn">이름 변경</button>
+      <button id="addChildBtn" class="secondary">자식 추가</button>
+      <button id="deleteBtn" class="secondary">선택 삭제</button>
+    </div>
+    <aside class="today-panel" aria-live="polite">
+      <h2>오늘할일</h2>
+      <div id="todayList" class="today-list"></div>
+    </aside>
+  </main>
+
+  <script>
+    const STORAGE_KEY = "mind-map-studio-json";
+    const PAN_SENSITIVITY = 1.35;
+    const STORAGE_VERSION = 1;
+    const NODE_WIDTH = 140;
+    const NODE_HEIGHT = 56;
+    const ROOT_RADIUS = 42;
+    const DEPTH_SCALE_STEP = 0.08;
+    const MIN_NODE_SCALE = 0.7;
+    const NODE_HORIZONTAL_PADDING = 40;
+    const ROOT_PADDING = 42;
+    const MIN_FONT_SIZE = 11;
+    const BASE_FONT_SIZE = 14;
+    const DEPTH_COLORS = [
+      "#e58989",
+      "#df9d84",
+      "#e6c779",
+      "#8fbd7e",
+      "#68b9ae",
+      "#7aaedf",
+      "#7b7fca",
+      "#aa7dcb",
+      "#d784b8",
+      "#69b7d8"
+    ];
+    const FADED_DEPTH_COLORS = [
+      "#ecd0d0",
+      "#ead7cd",
+      "#ece0bf",
+      "#d7e5d1",
+      "#d2e3e0",
+      "#d5e0ec",
+      "#d6d8ea",
+      "#e0d6ea",
+      "#ead5e2",
+      "#d0e3ea"
+    ];
+
+    const sampleData = {
+      id: crypto.randomUUID(),
+      label: "새 프로젝트",
+      x: 700,
+      y: 420,
+      children: [
+        {
+          id: crypto.randomUUID(),
+          label: "핵심 기능",
+          x: 980,
+          y: 250,
+          children: [
+            { id: crypto.randomUUID(), label: "노드 추가", x: 1180, y: 180, children: [] },
+            { id: crypto.randomUUID(), label: "드래그 이동", x: 1180, y: 270, children: [] }
+          ]
+        },
+        {
+          id: crypto.randomUUID(),
+          label: "디자인",
+          x: 420,
+          y: 280,
+          children: [
+            { id: crypto.randomUUID(), label: "색감", x: 220, y: 210, children: [] },
+            { id: crypto.randomUUID(), label: "레이아웃", x: 220, y: 330, children: [] }
+          ]
+        },
+        {
+          id: crypto.randomUUID(),
+          label: "정리할 아이디어",
+          x: 720,
+          y: 670,
+          children: []
+        }
+      ]
+    };
+
+    const svg = document.getElementById("mindmap");
+    const viewport = document.getElementById("viewport");
+    const linksLayer = document.getElementById("links");
+    const nodesLayer = document.getElementById("nodes");
+    const nodeLabelInput = document.getElementById("nodeLabel");
+    const todayBtn = document.getElementById("todayBtn");
+    const todayList = document.getElementById("todayList");
+
+    let state = loadState();
+    let selectedId = state.id;
+    let scale = 1;
+    let translate = { x: 0, y: 0 };
+    let dragInfo = null;
+    let panInfo = null;
+
+    function loadState() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return normalizeTree(structuredClone(sampleData));
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.version === STORAGE_VERSION && parsed.data?.id) {
+          return normalizeTree(parsed.data);
+        }
+        if (parsed?.id) {
+          return normalizeTree(parsed);
+        }
+        return normalizeTree(structuredClone(sampleData));
+      } catch {
+        return normalizeTree(structuredClone(sampleData));
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        version: STORAGE_VERSION,
+        savedAt: new Date().toISOString(),
+        data: state
+      }));
+    }
+
+    function flatten(node, parent = null, list = []) {
+      list.push({ node, parent });
+      node.children.forEach((child) => flatten(child, node, list));
+      return list;
+    }
+
+    function normalizeTree(node) {
+      node.today = Boolean(node.today);
+      node.children = Array.isArray(node.children) ? node.children : [];
+      node.children.forEach(normalizeTree);
+      return node;
+    }
+
+    function collectSubtree(node, list = []) {
+      list.push(node);
+      node.children.forEach((child) => collectSubtree(child, list));
+      return list;
+    }
+
+    function getAncestorIds(targetId, node = state, trail = []) {
+      if (node.id === targetId) {
+        return [...trail, node.id];
+      }
+      for (const child of node.children) {
+        const found = getAncestorIds(targetId, child, [...trail, node.id]);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    function findNode(id, node = state, parent = null) {
+      if (node.id === id) return { node, parent };
+      for (const child of node.children) {
+        const result = findNode(id, child, node);
+        if (result) return result;
+      }
+      return null;
+    }
+
+    function isRootNode(node) {
+      return node.id === state.id;
+    }
+
+    function getAncestorLabels(targetId, node = state, trail = []) {
+      if (node.id === targetId) {
+        return [...trail, node.label];
+      }
+      for (const child of node.children) {
+        const found = getAncestorLabels(targetId, child, [...trail, node.label]);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    function getNodeScale(depth) {
+      return Math.max(MIN_NODE_SCALE, 1 - depth * DEPTH_SCALE_STEP);
+    }
+
+    function getFontSize(scale) {
+      return Math.max(MIN_FONT_SIZE, BASE_FONT_SIZE * scale);
+    }
+
+    function estimateLabelWidth(label, fontSize) {
+      let units = 0;
+      for (const char of label) {
+        if (/\s/.test(char)) {
+          units += 0.34;
+        } else if (/[A-Z0-9]/.test(char)) {
+          units += 0.68;
+        } else if (/[a-z]/.test(char)) {
+          units += 0.58;
+        } else if (/[\u3131-\u318E\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]/.test(char)) {
+          units += 0.95;
+        } else {
+          units += 0.72;
+        }
+      }
+      return Math.max(fontSize * 2.2, units * fontSize);
+    }
+
+    function getNodeMetrics(node) {
+      const depth = getDepth(node.id);
+      const scale = getNodeScale(depth);
+      const fontSize = getFontSize(scale);
+      const labelWidth = estimateLabelWidth(node.label, fontSize);
+
+      if (isRootNode(node)) {
+        const radius = Math.max(ROOT_RADIUS * scale, (labelWidth + ROOT_PADDING) / 2);
+        return { depth, scale, fontSize, labelWidth, radius, width: radius * 2, height: radius * 2 };
+      }
+
+      return {
+        depth,
+        scale,
+        fontSize,
+        labelWidth,
+        width: Math.max(NODE_WIDTH * scale, labelWidth + NODE_HORIZONTAL_PADDING),
+        height: NODE_HEIGHT * scale
+      };
+    }
+
+    function getNodeAnchor(node, target) {
+      const dx = target.x - node.x;
+      const dy = target.y - node.y;
+      const metrics = getNodeMetrics(node);
+
+      if (isRootNode(node)) {
+        const distance = Math.hypot(dx, dy) || 1;
+        return {
+          x: node.x + (dx / distance) * metrics.radius,
+          y: node.y + (dy / distance) * metrics.radius
+        };
+      }
+
+      const halfWidth = metrics.width / 2;
+      const halfHeight = metrics.height / 2;
+
+      if (Math.abs(dx) >= Math.abs(dy) * 1.15) {
+        return {
+          x: node.x + (dx >= 0 ? halfWidth : -halfWidth),
+          y: node.y
+        };
+      }
+
+      return {
+        x: node.x,
+        y: node.y + (dy >= 0 ? halfHeight : -halfHeight)
+      };
+    }
+
+    function buildPath(from, to) {
+      const start = getNodeAnchor(from, to);
+      const end = getNodeAnchor(to, from);
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+      const horizontalPull = Math.max(40, Math.min(150, absDx * 0.42));
+      const verticalPull = Math.max(18, Math.min(110, absDy * 0.3));
+      const startControlX = start.x + Math.sign(dx || 1) * horizontalPull;
+      const endControlX = end.x - Math.sign(dx || 1) * horizontalPull;
+      const startControlY = start.y + Math.sign(dy) * verticalPull;
+      const endControlY = end.y - Math.sign(dy) * verticalPull;
+
+      return `M ${start.x} ${start.y} C ${startControlX} ${startControlY}, ${endControlX} ${endControlY}, ${end.x} ${end.y}`;
+    }
+
+    function colorForDepth(depth) {
+      if (depth < DEPTH_COLORS.length) {
+        return DEPTH_COLORS[depth];
+      }
+      const step = Math.min(depth - DEPTH_COLORS.length, 8);
+      const tone = 150 + step * 10;
+      return `rgb(${tone}, ${tone}, ${tone})`;
+    }
+
+    function fadedNodeColor(depth) {
+      if (depth < FADED_DEPTH_COLORS.length) {
+        return FADED_DEPTH_COLORS[depth];
+      }
+      const step = Math.min(depth - FADED_DEPTH_COLORS.length, 8);
+      const tone = 208 + step * 5;
+      return `rgb(${tone}, ${tone}, ${tone})`;
+    }
+
+    function getDepth(targetId) {
+      const walk = (node, depth) => {
+        if (node.id === targetId) return depth;
+        for (const child of node.children) {
+          const found = walk(child, depth + 1);
+          if (found !== -1) return found;
+        }
+        return -1;
+      };
+      return walk(state, 0);
+    }
+
+    function render() {
+      linksLayer.innerHTML = "";
+      nodesLayer.innerHTML = "";
+      const selectedResult = findNode(selectedId);
+      const relatedIds = new Set();
+
+      if (selectedResult) {
+        collectSubtree(selectedResult.node).forEach((node) => relatedIds.add(node.id));
+        (getAncestorIds(selectedId) || []).forEach((id) => relatedIds.add(id));
+      }
+
+      const items = flatten(state);
+      items.forEach(({ node, parent }) => {
+        if (parent) {
+          const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          path.setAttribute("class", "link");
+          path.setAttribute("d", buildPath(parent, node));
+          const isRelated = relatedIds.has(node.id) && relatedIds.has(parent.id);
+          path.style.stroke = isRelated ? "rgba(95, 78, 61, 0.62)" : "#d8cec2";
+          path.style.strokeWidth = node.id === selectedId || parent.id === selectedId ? "4" : "3";
+          linksLayer.appendChild(path);
+        }
+      });
+
+      items.forEach(({ node }) => {
+        const isRoot = isRootNode(node);
+        const metrics = getNodeMetrics(node);
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        group.setAttribute("class", `node${node.id === selectedId ? " selected" : ""}`);
+        group.dataset.id = node.id;
+        group.setAttribute(
+          "transform",
+          isRoot
+            ? `translate(${node.x - metrics.radius}, ${node.y - metrics.radius})`
+            : `translate(${node.x - metrics.width / 2}, ${node.y - metrics.height / 2})`
+        );
+
+        const shape = document.createElementNS("http://www.w3.org/2000/svg", isRoot ? "circle" : "rect");
+        if (isRoot) {
+          shape.setAttribute("cx", String(metrics.radius));
+          shape.setAttribute("cy", String(metrics.radius));
+          shape.setAttribute("r", String(metrics.radius));
+        } else {
+          shape.setAttribute("width", String(metrics.width));
+          shape.setAttribute("height", String(metrics.height));
+        }
+        shape.setAttribute("fill", relatedIds.has(node.id) ? colorForDepth(getDepth(node.id)) : fadedNodeColor(getDepth(node.id)));
+        shape.setAttribute("stroke", node.today ? "#a74826" : relatedIds.has(node.id) ? "rgba(47, 36, 27, 0.18)" : "#d7cdc0");
+        if (node.today) {
+          shape.setAttribute("stroke-width", "2.4");
+        }
+
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", String(isRoot ? metrics.radius : metrics.width / 2));
+        text.setAttribute("y", String(isRoot ? metrics.radius + 2 : metrics.height / 2 + 2));
+        text.setAttribute("font-size", String(metrics.fontSize));
+        text.textContent = node.label;
+
+        group.append(shape, text);
+
+        if (node.today) {
+          const badgeRadius = Math.max(8, Math.min(11, metrics.height * 0.18));
+          const badgeX = isRoot
+            ? metrics.width - badgeRadius * 0.45
+            : metrics.width - badgeRadius * 0.35;
+          const badgeY = isRoot
+            ? badgeRadius * 0.55
+            : badgeRadius * 0.65;
+          const badge = document.createElementNS("http://www.w3.org/2000/svg", "g");
+          badge.setAttribute("class", "node-badge");
+
+          const badgeCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          badgeCircle.setAttribute("cx", String(badgeX));
+          badgeCircle.setAttribute("cy", String(badgeY));
+          badgeCircle.setAttribute("r", String(badgeRadius));
+          badgeCircle.setAttribute("fill", "#fff7ee");
+          badgeCircle.setAttribute("stroke", "#a74826");
+          badgeCircle.setAttribute("stroke-width", "1.8");
+
+          const badgeCheck = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          badgeCheck.setAttribute(
+            "d",
+            `M ${badgeX - badgeRadius * 0.45} ${badgeY + badgeRadius * 0.02} L ${badgeX - badgeRadius * 0.1} ${badgeY + badgeRadius * 0.38} L ${badgeX + badgeRadius * 0.52} ${badgeY - badgeRadius * 0.34}`
+          );
+          badgeCheck.setAttribute("fill", "none");
+          badgeCheck.setAttribute("stroke", "#a74826");
+          badgeCheck.setAttribute("stroke-width", "2");
+          badgeCheck.setAttribute("stroke-linecap", "round");
+          badgeCheck.setAttribute("stroke-linejoin", "round");
+
+          badge.append(badgeCircle, badgeCheck);
+          group.appendChild(badge);
+        }
+
+        nodesLayer.appendChild(group);
+      });
+
+      applyViewport();
+      syncSelectionUI();
+      renderTodayList();
+      saveState();
+    }
+
+    function syncSelectionUI() {
+      const current = findNode(selectedId)?.node;
+      nodeLabelInput.value = current ? current.label : "";
+      todayBtn.classList.toggle("active", Boolean(current?.today));
+      todayBtn.classList.toggle("secondary", !current?.today);
+      todayBtn.textContent = current?.today ? "오늘할일 해제" : "오늘할일";
+    }
+
+    function getTodayItems() {
+      return flatten(state)
+        .filter(({ node }) => node.today)
+        .map(({ node }) => {
+          const labels = getAncestorLabels(node.id) || [node.label];
+          return {
+            id: node.id,
+            label: node.label,
+            path: labels.slice(0, -1).join(" > ")
+          };
+        });
+    }
+
+    function renderTodayList() {
+      const items = getTodayItems();
+      if (!items.length) {
+        todayList.innerHTML = '<p class="empty">아직 체크된 오늘할일이 없습니다. 하단 버튼으로 추가해보세요.</p>';
+        return;
+      }
+
+      todayList.innerHTML = items.map((item) => `
+        <article class="today-item" data-id="${item.id}">
+          <p class="path">${item.path || "최상위"}</p>
+          <p class="task">${item.label}</p>
+        </article>
+      `).join("");
+    }
+
+    function addChild(parentId) {
+      const result = findNode(parentId);
+      if (!result) return;
+      const parent = result.node;
+      const depth = getDepth(parentId) + 1;
+      const newNode = {
+        id: crypto.randomUUID(),
+        label: "새 노드",
+        x: parent.x + 220,
+        y: parent.y + Math.max(parent.children.length, 0) * 90 - 40,
+        today: false,
+        children: []
+      };
+      parent.children.push(newNode);
+      selectedId = newNode.id;
+      render();
+    }
+
+    function deleteNode(targetId) {
+      if (targetId === state.id) return;
+      const result = findNode(targetId);
+      if (!result?.parent) return;
+      const shouldDelete = window.confirm(`"${result.node.label}" 노드를 삭제할까요?\n하위 노드도 함께 삭제됩니다.`);
+      if (!shouldDelete) return;
+      result.parent.children = result.parent.children.filter((child) => child.id !== targetId);
+      selectedId = result.parent.id;
+      render();
+    }
+
+    function renameNode() {
+      const result = findNode(selectedId);
+      if (!result) return;
+      result.node.label = nodeLabelInput.value.trim() || "이름 없는 노드";
+      render();
+    }
+
+    function toggleToday() {
+      const result = findNode(selectedId);
+      if (!result) return;
+      result.node.today = !result.node.today;
+      render();
+    }
+
+    function applyViewport() {
+      viewport.setAttribute("transform", `translate(${translate.x} ${translate.y}) scale(${scale})`);
+    }
+
+    function toSvgPoint(clientX, clientY) {
+      const point = svg.createSVGPoint();
+      point.x = clientX;
+      point.y = clientY;
+      return point.matrixTransform(svg.getScreenCTM().inverse());
+    }
+
+    function setScale(nextScale, anchorX, anchorY) {
+      const clamped = Math.max(0.5, Math.min(2.8, +nextScale.toFixed(2)));
+      if (clamped === scale) return;
+      const worldX = (anchorX - translate.x) / scale;
+      const worldY = (anchorY - translate.y) / scale;
+      scale = clamped;
+      translate.x = anchorX - worldX * scale;
+      translate.y = anchorY - worldY * scale;
+      render();
+    }
+
+    function centerOnNode(nodeId = state.id) {
+      const result = findNode(nodeId);
+      if (!result) return;
+      const rect = svg.getBoundingClientRect();
+      const centerPoint = toSvgPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      translate.x = centerPoint.x - result.node.x * scale;
+      translate.y = centerPoint.y - result.node.y * scale;
+      render();
+    }
+
+    svg.addEventListener("pointerdown", (event) => {
+      if (event.button === 1) {
+        event.preventDefault();
+        panInfo = {
+          startX: event.clientX,
+          startY: event.clientY,
+          originX: translate.x,
+          originY: translate.y
+        };
+        return;
+      }
+
+      const nodeGroup = event.target.closest(".node");
+      if (!nodeGroup) {
+        selectedId = state.id;
+        render();
+        return;
+      }
+      selectedId = nodeGroup.dataset.id;
+      const result = findNode(selectedId);
+      if (!result) return;
+      const start = toSvgPoint(event.clientX, event.clientY);
+      const subtree = collectSubtree(result.node);
+      dragInfo = {
+        id: selectedId,
+        pointerX: (start.x - translate.x) / scale,
+        pointerY: (start.y - translate.y) / scale,
+        nodes: subtree.map((node) => ({
+          id: node.id,
+          startX: node.x,
+          startY: node.y
+        }))
+      };
+      render();
+    });
+
+    svg.addEventListener("pointermove", (event) => {
+      if (panInfo) {
+        translate.x = panInfo.originX + (event.clientX - panInfo.startX) * PAN_SENSITIVITY;
+        translate.y = panInfo.originY + (event.clientY - panInfo.startY) * PAN_SENSITIVITY;
+        render();
+        return;
+      }
+
+      if (!dragInfo) return;
+      const point = toSvgPoint(event.clientX, event.clientY);
+      const nextPointerX = (point.x - translate.x) / scale;
+      const nextPointerY = (point.y - translate.y) / scale;
+      const deltaX = nextPointerX - dragInfo.pointerX;
+      const deltaY = nextPointerY - dragInfo.pointerY;
+
+      dragInfo.nodes.forEach((entry) => {
+        const nodeResult = findNode(entry.id);
+        if (!nodeResult) return;
+        nodeResult.node.x = entry.startX + deltaX;
+        nodeResult.node.y = entry.startY + deltaY;
+      });
+      render();
+    });
+
+    window.addEventListener("pointerup", () => {
+      dragInfo = null;
+      panInfo = null;
+    });
+
+    svg.addEventListener("mousedown", (event) => {
+      if (event.button === 1) {
+        event.preventDefault();
+      }
+    });
+
+    svg.addEventListener("dblclick", (event) => {
+      const nodeGroup = event.target.closest(".node");
+      if (!nodeGroup) return;
+      addChild(nodeGroup.dataset.id);
+    });
+
+    svg.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      const point = toSvgPoint(event.clientX, event.clientY);
+      const direction = event.deltaY > 0 ? -0.1 : 0.1;
+      setScale(scale + direction, point.x, point.y);
+    }, { passive: false });
+
+    document.getElementById("renameBtn").addEventListener("click", renameNode);
+    todayBtn.addEventListener("click", toggleToday);
+    document.getElementById("addChildBtn").addEventListener("click", () => addChild(selectedId));
+    document.getElementById("deleteBtn").addEventListener("click", () => deleteNode(selectedId));
+    document.getElementById("centerBtn").addEventListener("click", () => {
+      scale = 1;
+      centerOnNode(state.id);
+    });
+
+    nodeLabelInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") renameNode();
+    });
+
+    todayList.addEventListener("click", (event) => {
+      const item = event.target.closest(".today-item");
+      if (!item) return;
+      selectedId = item.dataset.id;
+      centerOnNode(selectedId);
+    });
+
+    if ("serviceWorker" in navigator && window.isSecureContext) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch((error) => {
+          console.warn("Service worker registration failed:", error);
+        });
+      });
+    }
+
+    scale = 1;
+    centerOnNode(state.id);
+  </script>
+</body>
+</html>
