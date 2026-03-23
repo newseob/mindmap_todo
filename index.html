@@ -183,6 +183,18 @@
       background: #cbb29a;
     }
 
+    button:disabled {
+      cursor: default;
+      opacity: 0.5;
+      box-shadow: none;
+      transform: none;
+    }
+
+    button:disabled:hover {
+      background: inherit;
+      transform: none;
+    }
+
     #renameBtn {
       order: 3;
     }
@@ -195,8 +207,16 @@
       order: 5;
     }
 
-    #deleteBtn {
+    #connectBtn {
       order: 6;
+    }
+
+    #unlinkBtn {
+      order: 7;
+    }
+
+    #deleteBtn {
+      order: 8;
     }
 
     svg {
@@ -238,6 +258,12 @@
     .node.selected circle {
       stroke: #fff7ee;
       stroke-width: 3;
+    }
+
+    .node.connect-target rect,
+    .node.connect-target circle {
+      stroke: #a74826;
+      stroke-width: 3.2;
     }
 
     .preview-node {
@@ -423,6 +449,12 @@
       transform: none;
     }
 
+    .context-menu button:disabled {
+      color: rgba(117, 102, 86, 0.7);
+      background: transparent;
+      opacity: 1;
+    }
+
     button.active {
       background: var(--accent-strong);
       color: #fffaf4;
@@ -462,7 +494,7 @@
       .today-panel {
         left: 16px;
         right: 16px;
-        bottom: 146px;
+        bottom: 184px;
         width: auto;
         max-height: 32vh;
       }
@@ -506,6 +538,8 @@
       <button id="renameBtn">이름 변경</button>
       <button id="addChildBtn" class="secondary">노드 추가</button>
       <button id="deleteBtn" class="secondary">선택 삭제</button>
+      <button id="connectBtn" class="secondary">노드 연결</button>
+      <button id="unlinkBtn" class="secondary">연결 해제</button>
     </div>
     <aside id="todayPanel" class="today-panel" aria-live="polite">
       <div class="today-panel-header">
@@ -516,6 +550,8 @@
     </aside>
     <div id="nodeContextMenu" class="context-menu" hidden>
       <button id="nodeContextAddBtn" type="button">노드 추가</button>
+      <button id="nodeContextConnectBtn" type="button">노드 연결</button>
+      <button id="nodeContextUnlinkBtn" type="button">노드 연결 해제</button>
       <button id="nodeContextDeleteBtn" type="button">삭제</button>
     </div>
   </main>
@@ -572,11 +608,15 @@
     const nodesLayer = document.getElementById("nodes");
     const nodeLabelInput = document.getElementById("nodeLabel");
     const todayBtn = document.getElementById("todayBtn");
+    const connectBtn = document.getElementById("connectBtn");
+    const unlinkBtn = document.getElementById("unlinkBtn");
     const todayPanel = document.getElementById("todayPanel");
     const todayPanelToggle = document.getElementById("todayPanelToggle");
     const todayList = document.getElementById("todayList");
     const nodeContextMenu = document.getElementById("nodeContextMenu");
     const nodeContextAddBtn = document.getElementById("nodeContextAddBtn");
+    const nodeContextConnectBtn = document.getElementById("nodeContextConnectBtn");
+    const nodeContextUnlinkBtn = document.getElementById("nodeContextUnlinkBtn");
     const nodeContextDeleteBtn = document.getElementById("nodeContextDeleteBtn");
     const projectList = document.getElementById("projectList");
     const addProjectBtn = document.getElementById("addProjectBtn");
@@ -590,6 +630,8 @@
     let dragInfo = null;
     let panInfo = null;
     let contextMenuNodeId = null;
+    let connectModeNodeId = null;
+    let connectHoverNodeId = null;
 
     function loadState() {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -629,6 +671,7 @@
 
     function normalizeTree(node) {
       node.today = Boolean(node.today);
+      node.detached = Boolean(node.detached);
       node.children = Array.isArray(node.children) ? node.children : [];
       node.children.forEach(normalizeTree);
       return node;
@@ -712,7 +755,10 @@
 
     function collectSubtree(node, list = []) {
       list.push(node);
-      node.children.forEach((child) => collectSubtree(child, list));
+      node.children.forEach((child) => {
+        if (node.id === state.id && child.detached) return;
+        collectSubtree(child, list);
+      });
       return list;
     }
 
@@ -906,7 +952,7 @@
 
       const items = flatten(state);
       items.forEach(({ node, parent }) => {
-        if (parent) {
+        if (parent && !node.detached) {
           const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
           path.setAttribute("class", "link");
           path.setAttribute("d", buildPath(parent, node));
@@ -917,7 +963,7 @@
         }
       });
 
-      if (selectedResult) {
+      if (selectedResult && !connectModeNodeId) {
         const previewNode = getPreviewNode(selectedResult.node.id);
         if (previewNode) {
           const previewPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -940,7 +986,7 @@
         const isRoot = isRootNode(node);
         const metrics = getNodeMetrics(node);
         const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        group.setAttribute("class", `node${node.id === selectedId ? " selected" : ""}`);
+        group.setAttribute("class", `node${node.id === selectedId ? " selected" : ""}${node.id === connectHoverNodeId ? " connect-target" : ""}`);
         group.dataset.id = node.id;
         group.setAttribute(
           "transform",
@@ -1010,7 +1056,7 @@
         nodesLayer.appendChild(group);
       });
 
-      if (selectedResult) {
+      if (selectedResult && !connectModeNodeId) {
         const previewNode = getPreviewNode(selectedResult.node.id);
         if (previewNode) {
           const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -1054,6 +1100,8 @@
       todayBtn.disabled = !current;
       document.getElementById("renameBtn").disabled = !current;
       document.getElementById("addChildBtn").disabled = !current;
+      connectBtn.disabled = !current || current.id === state.id || !current.detached;
+      unlinkBtn.disabled = !current || current.id === state.id || current.detached;
       document.getElementById("deleteBtn").disabled = !current || current.id === state.id;
       deleteProjectBtn.disabled = appState.projects.length <= 1;
     }
@@ -1155,12 +1203,62 @@
         x: parent.x + 220,
         y: parent.y + Math.max(parent.children.length, 0) * 90 - 40,
         today: false,
+        detached: false,
         children: []
       };
       parent.children.push(newNode);
       selectedId = newNode.id;
       render();
       return newNode.id;
+    }
+
+    function unlinkNode(targetId) {
+      if (!targetId || targetId === state.id) return;
+      const result = findNode(targetId);
+      if (!result?.parent) return;
+      result.parent.children = result.parent.children.filter((child) => child.id !== targetId);
+      result.node.detached = true;
+      state.children.push(result.node);
+      selectedId = result.node.id;
+      render();
+    }
+
+    function reattachNode(targetId, nextParentId) {
+      if (!targetId || !nextParentId || targetId === nextParentId) return false;
+      const nodeResult = findNode(targetId);
+      const nextParentResult = findNode(nextParentId);
+      if (!nodeResult?.parent || !nextParentResult) return false;
+      if (!nodeResult.node.detached) return false;
+
+      nodeResult.parent.children = nodeResult.parent.children.filter((child) => child.id !== targetId);
+      nodeResult.node.detached = false;
+      nextParentResult.node.children.push(nodeResult.node);
+      selectedId = nodeResult.node.id;
+      connectModeNodeId = null;
+      render();
+      return true;
+    }
+
+    function beginConnectMode(targetId) {
+      if (!targetId) return;
+      const current = findNode(targetId)?.node;
+      if (!current?.detached) return;
+      connectModeNodeId = targetId;
+      connectHoverNodeId = null;
+      selectedId = targetId;
+      render();
+    }
+
+    function findDropTargetNodeId(clientX, clientY, draggingId) {
+      const elements = document.elementsFromPoint(clientX, clientY);
+      const nodeGroup = elements.find((element) => element?.classList?.contains("node") && element.dataset.id !== draggingId);
+      return nodeGroup?.dataset?.id || null;
+    }
+
+    function isConnectTarget(nodeId) {
+      if (!connectModeNodeId || !nodeId || nodeId === connectModeNodeId) return false;
+      const targetNode = findNode(nodeId)?.node;
+      return Boolean(targetNode && !targetNode.detached);
     }
 
     function deleteNode(targetId) {
@@ -1208,6 +1306,9 @@
 
     function showNodeContextMenu(clientX, clientY, nodeId) {
       contextMenuNodeId = nodeId;
+      const current = findNode(nodeId)?.node;
+      nodeContextConnectBtn.disabled = !current || current.id === state.id || !current.detached;
+      nodeContextUnlinkBtn.disabled = !current || current.id === state.id || current.detached;
       nodeContextMenu.hidden = false;
       nodeContextMenu.style.left = "0px";
       nodeContextMenu.style.top = "0px";
@@ -1276,10 +1377,23 @@
 
       const nodeGroup = event.target.closest(".node");
       if (!nodeGroup) {
+        if (connectModeNodeId) {
+          connectHoverNodeId = null;
+        }
         selectedId = null;
         render();
         return;
       }
+
+      if (connectModeNodeId) {
+        const targetId = nodeGroup.dataset.id;
+        if (isConnectTarget(targetId)) {
+          reattachNode(connectModeNodeId, targetId);
+          connectHoverNodeId = null;
+          return;
+        }
+      }
+
       selectedId = nodeGroup.dataset.id;
       const result = findNode(selectedId);
       if (!result) return;
@@ -1312,6 +1426,16 @@
         translate.x = panInfo.originX + (event.clientX - panInfo.startX) * PAN_SENSITIVITY;
         translate.y = panInfo.originY + (event.clientY - panInfo.startY) * PAN_SENSITIVITY;
         render();
+        return;
+      }
+
+      if (connectModeNodeId) {
+        const nodeGroup = event.target.closest(".node");
+        const nextHoverNodeId = nodeGroup && isConnectTarget(nodeGroup.dataset.id) ? nodeGroup.dataset.id : null;
+        if (connectHoverNodeId !== nextHoverNodeId) {
+          connectHoverNodeId = nextHoverNodeId;
+          render();
+        }
         return;
       }
 
@@ -1368,6 +1492,12 @@
       if (!selectedId) return;
       addChild(selectedId);
     });
+    connectBtn.addEventListener("click", () => {
+      beginConnectMode(selectedId);
+    });
+    unlinkBtn.addEventListener("click", () => {
+      unlinkNode(selectedId);
+    });
     document.getElementById("deleteBtn").addEventListener("click", () => {
       if (!selectedId) return;
       deleteNode(selectedId);
@@ -1386,6 +1516,11 @@
     window.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
         hideNodeContextMenu();
+        if (connectModeNodeId) {
+          connectModeNodeId = null;
+          connectHoverNodeId = null;
+          render();
+        }
       }
       if (event.key !== "Delete") return;
       const target = event.target;
@@ -1408,6 +1543,20 @@
       hideNodeContextMenu();
       if (!targetId) return;
       addChild(targetId);
+    });
+
+    nodeContextConnectBtn.addEventListener("click", () => {
+      const targetId = contextMenuNodeId || selectedId;
+      hideNodeContextMenu();
+      beginConnectMode(targetId);
+    });
+
+    nodeContextUnlinkBtn.addEventListener("click", () => {
+      const targetId = contextMenuNodeId || selectedId;
+      hideNodeContextMenu();
+      connectModeNodeId = null;
+      connectHoverNodeId = null;
+      unlinkNode(targetId);
     });
 
     projectList.addEventListener("click", (event) => {
