@@ -465,13 +465,32 @@
       line-height: 1.25;
     }
 
-    .context-menu button:nth-of-type(4) {
+    .context-menu button:first-of-type {
+      margin-bottom: 6px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(124, 106, 88, 0.18);
+    }
+
+    .context-menu button:nth-of-type(5) {
       margin-top: 6px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(124, 106, 88, 0.18);
     }
 
     .context-menu button:hover {
       background: rgba(219, 201, 183, 0.68);
       transform: none;
+    }
+
+    #nodeContextDeleteBtn,
+    #nodeContextDeleteOnlyBtn {
+      color: #b03a2e;
+    }
+
+    #nodeContextDeleteBtn:hover,
+    #nodeContextDeleteOnlyBtn:hover {
+      color: #942d22;
+      background: rgba(231, 178, 171, 0.28);
     }
 
     .context-menu button:disabled {
@@ -575,6 +594,7 @@
       <div id="todayList" class="today-list"></div>
     </aside>
     <div id="nodeContextMenu" class="context-menu" hidden>
+      <button id="nodeContextTodayBtn" type="button">오늘할일</button>
       <button id="nodeContextAddBtn" type="button">노드 추가</button>
       <button id="nodeContextConnectBtn" type="button">노드 연결</button>
       <button id="nodeContextUnlinkBtn" type="button">노드 연결 해제</button>
@@ -641,6 +661,7 @@
     const todayPanelToggle = document.getElementById("todayPanelToggle");
     const todayList = document.getElementById("todayList");
     const nodeContextMenu = document.getElementById("nodeContextMenu");
+    const nodeContextTodayBtn = document.getElementById("nodeContextTodayBtn");
     const nodeContextAddBtn = document.getElementById("nodeContextAddBtn");
     const nodeContextConnectBtn = document.getElementById("nodeContextConnectBtn");
     const nodeContextUnlinkBtn = document.getElementById("nodeContextUnlinkBtn");
@@ -1375,6 +1396,8 @@
     function showNodeContextMenu(clientX, clientY, nodeId) {
       contextMenuNodeId = nodeId;
       const current = findNode(nodeId)?.node;
+      nodeContextTodayBtn.textContent = current?.today ? "오늘할일 해제" : "오늘할일";
+      nodeContextTodayBtn.disabled = !current;
       nodeContextConnectBtn.disabled = !current || current.id === state.id;
       nodeContextUnlinkBtn.disabled = !current || current.id === state.id || current.detached;
       nodeContextMenu.hidden = false;
@@ -1613,6 +1636,14 @@
       const targetId = contextMenuNodeId || selectedId;
       hideNodeContextMenu();
       deleteNode(targetId, "single");
+    });
+
+    nodeContextTodayBtn.addEventListener("click", () => {
+      const targetId = contextMenuNodeId || selectedId;
+      hideNodeContextMenu();
+      if (!targetId) return;
+      selectedId = targetId;
+      toggleToday();
     });
 
     nodeContextAddBtn.addEventListener("click", () => {
