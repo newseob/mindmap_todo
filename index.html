@@ -70,18 +70,7 @@
       gap: 10px;
       width: 100%;
       min-width: 0;
-      padding: 2px 0 0;
-      border-radius: 0;
-      border: none;
-      background: transparent;
-      color: var(--text);
-      text-align: left;
-      box-shadow: none;
-    }
-
-    .project-trigger:hover {
-      background: transparent;
-      transform: none;
+      padding: 0;
     }
 
     .project-title {
@@ -96,21 +85,10 @@
       min-width: 0;
       font-size: 1rem;
       font-weight: 700;
-      color: var(--text);
+      color: var(--accent-strong);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-    }
-
-    .project-caret {
-      flex: 0 0 auto;
-      color: var(--muted);
-      font-size: 0.86rem;
-      transition: transform 120ms ease;
-    }
-
-    .project-toolbar.open .project-caret {
-      transform: rotate(180deg);
     }
 
     .project-panel {
@@ -143,6 +121,10 @@
       flex: 1;
       padding: 9px 12px;
       font-size: 0.88rem;
+    }
+
+    .project-toolbar.open #projectMenuBtn::before {
+      transform: translate(-50%, -50%) rotate(225deg);
     }
 
     .connect-mode-banner {
@@ -422,7 +404,7 @@
       height: auto;
       min-width: 0;
       padding: 0;
-      margin: 0 6px 0 0;
+      margin: 0 4px 0 0;
       border: none;
       background: transparent;
       appearance: none;
@@ -433,12 +415,12 @@
     .today-toggle::before {
       content: "";
       position: absolute;
-      top: 20%;
+      top: 24%;
       left: 50%;
-      width: 10px;
-      height: 10px;
-      border-right: 2px solid var(--text);
-      border-bottom: 2px solid var(--text);
+      width: 8px;
+      height: 8px;
+      border-right: 1.8px solid var(--text);
+      border-bottom: 1.8px solid var(--text);
       transform: translate(-50%, -50%) rotate(45deg);
       transition: transform 140ms ease, border-color 120ms ease;
     }
@@ -695,11 +677,13 @@
     </div>
     <aside class="right-tray" aria-label="우측 트레이">
       <aside class="project-toolbar side-panel" aria-live="polite">
-        <button id="projectMenuBtn" class="project-trigger" type="button" aria-expanded="false" aria-controls="projectPanel">
-          <span class="project-title">프로젝트 :</span>
-          <span id="currentProjectName" class="project-current">프로젝트 1</span>
-          <span class="project-caret">▼</span>
-        </button>
+        <div class="today-panel-header">
+          <div class="project-trigger">
+            <span class="project-title">프로젝트 :</span>
+            <span id="currentProjectName" class="project-current">프로젝트 1</span>
+          </div>
+          <button id="projectMenuBtn" class="today-toggle panel-toggle" type="button" aria-expanded="false" aria-controls="projectPanel" aria-label="프로젝트 목록 열기"></button>
+        </div>
         <div id="projectPanel" class="project-panel" hidden>
           <div id="projectList" class="project-list"></div>
           <div class="project-actions">
@@ -1385,6 +1369,7 @@
       projectToolbar.classList.toggle("open", isProjectMenuOpen);
       projectPanel.hidden = !isProjectMenuOpen;
       projectMenuBtn.setAttribute("aria-expanded", String(isProjectMenuOpen));
+      projectMenuBtn.setAttribute("aria-label", isProjectMenuOpen ? "프로젝트 목록 숨기기" : "프로젝트 목록 보기");
     }
 
     function openProjectMenu() {
