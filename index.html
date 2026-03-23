@@ -266,9 +266,70 @@
       box-shadow: var(--shadow);
     }
 
+    .today-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
     .today-panel h2 {
-      margin: 0 0 10px;
+      margin: 0;
       font-size: 0.98rem;
+    }
+
+    .today-toggle {
+      flex: 0 0 auto;
+      width: auto;
+      height: auto;
+      min-width: 0;
+      padding: 0;
+      margin: 0 6px 0 0;
+      border: none;
+      background: transparent;
+      appearance: none;
+      position: relative;
+      box-shadow: none;
+    }
+
+    .today-toggle::before {
+      content: "";
+      position: absolute;
+      top: 20%;
+      left: 50%;
+      width: 10px;
+      height: 10px;
+      border-right: 2px solid var(--text);
+      border-bottom: 2px solid var(--text);
+      transform: translate(-50%, -50%) rotate(45deg);
+      transition: transform 140ms ease, border-color 120ms ease;
+    }
+
+    .today-toggle:hover::before {
+      border-color: var(--accent-strong);
+    }
+
+    .today-toggle:hover {
+      background: transparent;
+      transform: none;
+    }
+
+    .today-panel.collapsed {
+      overflow: hidden;
+      padding-bottom: 14px;
+    }
+
+    .today-panel.collapsed #todayList {
+      display: none;
+    }
+
+    .today-panel.collapsed .today-toggle {
+      transform: none;
+    }
+
+    .today-panel.collapsed .today-toggle::before {
+      transform: translate(-50%, -50%) rotate(225deg);
     }
 
     .today-panel .empty {
@@ -311,7 +372,7 @@
       color: #fffaf4;
     }
 
-    @media (max-width: 960px) {
+    @media (max-width: 900px) {
       .bottom-bar {
         left: 16px;
         right: 16px;
@@ -390,8 +451,11 @@
       <button id="addChildBtn" class="secondary">자식 추가</button>
       <button id="deleteBtn" class="secondary">선택 삭제</button>
     </div>
-    <aside class="today-panel" aria-live="polite">
-      <h2>오늘할일</h2>
+    <aside id="todayPanel" class="today-panel" aria-live="polite">
+      <div class="today-panel-header">
+        <h2>오늘할일</h2>
+        <button id="todayPanelToggle" class="today-toggle" type="button" aria-expanded="true" aria-label="오늘할일 숨기기"></button>
+      </div>
       <div id="todayList" class="today-list"></div>
     </aside>
   </main>
@@ -449,6 +513,8 @@
     const nodesLayer = document.getElementById("nodes");
     const nodeLabelInput = document.getElementById("nodeLabel");
     const todayBtn = document.getElementById("todayBtn");
+    const todayPanel = document.getElementById("todayPanel");
+    const todayPanelToggle = document.getElementById("todayPanelToggle");
     const todayList = document.getElementById("todayList");
     const projectList = document.getElementById("projectList");
     const addProjectBtn = document.getElementById("addProjectBtn");
@@ -487,6 +553,7 @@
         version: STORAGE_VERSION,
         savedAt: new Date().toISOString(),
         activeProjectId: appState.activeProjectId,
+        todayPanelCollapsed: Boolean(appState.todayPanelCollapsed),
         projects: appState.projects
       }));
     }
@@ -522,6 +589,7 @@
       const firstProject = createProject("프로젝트 1");
       return {
         activeProjectId: firstProject.id,
+        todayPanelCollapsed: false,
         projects: [firstProject]
       };
     }
@@ -534,6 +602,7 @@
       };
       return {
         activeProjectId: firstProject.id,
+        todayPanelCollapsed: false,
         projects: [firstProject]
       };
     }
@@ -555,7 +624,11 @@
         ? rawState.activeProjectId
         : projects[0].id;
 
-      return { activeProjectId, projects };
+      return {
+        activeProjectId,
+        todayPanelCollapsed: Boolean(rawState.todayPanelCollapsed),
+        projects
+      };
     }
 
     function getProjectTitle(project) {
@@ -678,7 +751,7 @@
       const halfWidth = metrics.width / 2;
       const halfHeight = metrics.height / 2;
 
-      if (Math.abs(dx) >= Math.abs(dy) * 1.15) {
+      if (Math.abs(dx) >= Math.abs(dy) * 0.3) {
         return {
           x: node.x + (dx >= 0 ? halfWidth : -halfWidth),
           y: node.y
@@ -839,6 +912,7 @@
       syncSelectionUI();
       renderProjectList();
       renderTodayList();
+      syncTodayPanelUI();
       saveState();
     }
 
@@ -924,6 +998,18 @@
           <p class="task">${item.label}</p>
         </article>
       `).join("");
+    }
+
+    function syncTodayPanelUI() {
+      const isCollapsed = Boolean(appState.todayPanelCollapsed);
+      todayPanel.classList.toggle("collapsed", isCollapsed);
+      todayPanelToggle.setAttribute("aria-expanded", String(!isCollapsed));
+      todayPanelToggle.setAttribute("aria-label", isCollapsed ? "오늘할일 펼치기" : "오늘할일 숨기기");
+    }
+
+    function toggleTodayPanel() {
+      appState.todayPanelCollapsed = !appState.todayPanelCollapsed;
+      render();
     }
 
     function addChild(parentId) {
@@ -1091,6 +1177,7 @@
 
     document.getElementById("renameBtn").addEventListener("click", renameNode);
     todayBtn.addEventListener("click", toggleToday);
+    todayPanelToggle.addEventListener("click", toggleTodayPanel);
     document.getElementById("addChildBtn").addEventListener("click", () => addChild(selectedId));
     document.getElementById("deleteBtn").addEventListener("click", () => deleteNode(selectedId));
     addProjectBtn.addEventListener("click", addProject);
