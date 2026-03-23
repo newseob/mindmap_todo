@@ -59,25 +59,79 @@
     }
 
     .project-toolbar {
-      position: absolute;
-      top: 22px;
-      left: 22px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      z-index: 2;
+      position: relative;
+      width: 100%;
+      padding: 10px 14px 12px;
     }
 
-    .project-toolbar .project-head {
+    .project-trigger {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
+      width: 100%;
+      min-width: 0;
+      padding: 2px 0 0;
+      border-radius: 0;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+      box-shadow: none;
     }
 
-    .project-toolbar .project-title {
+    .project-trigger:hover {
+      background: transparent;
+      transform: none;
+    }
+
+    .project-title {
       font-size: 0.88rem;
       color: var(--muted);
       font-weight: 700;
+      flex: 0 0 auto;
+    }
+
+    .project-current {
+      flex: 1;
+      min-width: 0;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .project-caret {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 0.86rem;
+      transition: transform 120ms ease;
+    }
+
+    .project-toolbar.open .project-caret {
+      transform: rotate(180deg);
+    }
+
+    .project-panel {
+      position: static;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      margin-top: 12px;
+    }
+
+    .project-panel[hidden] {
+      display: none;
+    }
+
+    .project-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: min(48vh, 360px);
+      overflow-y: auto;
     }
 
     .project-actions {
@@ -86,15 +140,9 @@
     }
 
     .project-actions button {
-      padding: 7px 10px;
-      font-size: 0.82rem;
-    }
-
-    .project-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      max-width: min(520px, calc(100vw - 44px));
+      flex: 1;
+      padding: 9px 12px;
+      font-size: 0.88rem;
     }
 
     .connect-mode-banner {
@@ -116,13 +164,15 @@
     }
 
     .project-chip {
-      padding: 8px 12px;
-      border-radius: 999px;
+      width: 100%;
+      padding: 11px 13px;
+      border-radius: 14px;
       border: 1px solid rgba(124, 106, 88, 0.16);
       background: rgba(255, 250, 242, 0.9);
       color: var(--text);
       backdrop-filter: blur(10px);
       box-shadow: 0 10px 25px rgba(55, 37, 24, 0.08);
+      text-align: left;
     }
 
     .project-chip:hover {
@@ -608,29 +658,22 @@
       }
 
       .project-toolbar {
-        top: 16px;
-        left: 16px;
-        right: 16px;
+        padding: 10px 14px 12px;
       }
 
-      .project-list {
-        max-width: none;
+      .project-trigger,
+      .project-panel {
+        width: 100%;
+      }
+
+      .project-trigger {
+        min-width: 0;
       }
     }
   </style>
 </head>
 <body>
   <main class="canvas-wrap">
-    <div class="project-toolbar">
-      <div class="project-head">
-        <span class="project-title">프로젝트</span>
-        <div class="project-actions">
-          <button id="addProjectBtn" class="secondary" type="button">추가</button>
-          <button id="deleteProjectBtn" class="secondary" type="button">삭제</button>
-        </div>
-      </div>
-      <div id="projectList" class="project-list"></div>
-    </div>
     <div id="connectModeBanner" class="connect-mode-banner" hidden>노드 연결 모드입니다. 연결할 부모 노드를 선택하거나 빈 공간 클릭, Esc로 취소하세요.</div>
 
     <svg id="mindmap" viewBox="0 0 1400 900" aria-label="mind map canvas">
@@ -651,6 +694,20 @@
       <button id="unlinkBtn" class="secondary" hidden>연결 해제</button>
     </div>
     <aside class="right-tray" aria-label="우측 트레이">
+      <aside class="project-toolbar side-panel" aria-live="polite">
+        <button id="projectMenuBtn" class="project-trigger" type="button" aria-expanded="false" aria-controls="projectPanel">
+          <span class="project-title">프로젝트 :</span>
+          <span id="currentProjectName" class="project-current">프로젝트 1</span>
+          <span class="project-caret">▼</span>
+        </button>
+        <div id="projectPanel" class="project-panel" hidden>
+          <div id="projectList" class="project-list"></div>
+          <div class="project-actions">
+            <button id="addProjectBtn" class="secondary" type="button">추가</button>
+            <button id="deleteProjectBtn" class="secondary" type="button">삭제</button>
+          </div>
+        </div>
+      </aside>
       <aside id="todayPanel" class="today-panel side-panel collapsible-panel" aria-live="polite">
         <div class="today-panel-header">
           <h2>오늘할일</h2>
@@ -675,6 +732,9 @@
       <button id="nodeContextUnlinkBtn" type="button">노드 연결 해제</button>
       <button id="nodeContextDeleteOnlyBtn" type="button">삭제</button>
       <button id="nodeContextDeleteBtn" type="button">삭제(하위 노드 포함)</button>
+    </div>
+    <div id="canvasContextMenu" class="context-menu" hidden>
+      <button id="canvasContextAddBtn" type="button">새 노드 추가</button>
     </div>
   </main>
   <script>
@@ -746,7 +806,13 @@
     const nodeContextUnlinkBtn = document.getElementById("nodeContextUnlinkBtn");
     const nodeContextDeleteBtn = document.getElementById("nodeContextDeleteBtn");
     const nodeContextDeleteOnlyBtn = document.getElementById("nodeContextDeleteOnlyBtn");
+    const canvasContextMenu = document.getElementById("canvasContextMenu");
+    const canvasContextAddBtn = document.getElementById("canvasContextAddBtn");
     const connectModeBanner = document.getElementById("connectModeBanner");
+    const projectToolbar = document.querySelector(".project-toolbar");
+    const projectMenuBtn = document.getElementById("projectMenuBtn");
+    const projectPanel = document.getElementById("projectPanel");
+    const currentProjectName = document.getElementById("currentProjectName");
     const projectList = document.getElementById("projectList");
     const addProjectBtn = document.getElementById("addProjectBtn");
     const deleteProjectBtn = document.getElementById("deleteProjectBtn");
@@ -759,6 +825,8 @@
     let dragInfo = null;
     let panInfo = null;
     let contextMenuNodeId = null;
+    let canvasContextPoint = null;
+    let isProjectMenuOpen = false;
     let connectModeNodeId = null;
     let connectHoverNodeId = null;
     let undoStack = [];
@@ -1286,6 +1354,7 @@
 
       applyViewport();
       syncSelectionUI();
+      syncProjectMenuUI();
       renderProjectList();
       renderTodayList();
       syncTodayPanelUI();
@@ -1310,6 +1379,29 @@
       deleteProjectBtn.disabled = appState.projects.length <= 1;
     }
 
+    function syncProjectMenuUI() {
+      const activeProject = getActiveProject();
+      currentProjectName.textContent = getProjectTitle(activeProject);
+      projectToolbar.classList.toggle("open", isProjectMenuOpen);
+      projectPanel.hidden = !isProjectMenuOpen;
+      projectMenuBtn.setAttribute("aria-expanded", String(isProjectMenuOpen));
+    }
+
+    function openProjectMenu() {
+      isProjectMenuOpen = true;
+      syncProjectMenuUI();
+    }
+
+    function closeProjectMenu() {
+      isProjectMenuOpen = false;
+      syncProjectMenuUI();
+    }
+
+    function toggleProjectMenu() {
+      isProjectMenuOpen = !isProjectMenuOpen;
+      syncProjectMenuUI();
+    }
+
     function renderProjectList() {
       const activeProjectId = getActiveProject().id;
       projectList.innerHTML = appState.projects.map((project) => `
@@ -1326,6 +1418,7 @@
       syncActiveProjectState();
       selectedId = null;
       scale = 1;
+      closeProjectMenu();
       centerOnNode(state.id);
     }
 
@@ -1340,6 +1433,7 @@
       syncActiveProjectState();
       selectedId = null;
       scale = 1;
+      openProjectMenu();
       centerOnNode(state.id);
     }
 
@@ -1357,6 +1451,7 @@
       syncActiveProjectState();
       selectedId = null;
       scale = 1;
+      openProjectMenu();
       centerOnNode(state.id);
     }
 
@@ -1443,6 +1538,25 @@
       };
       parent.children.push(newNode);
       selectedId = newNode.id;
+      render();
+      return newNode.id;
+    }
+
+    function addDetachedNodeAt(x, y) {
+      pushUndoSnapshot();
+      const newNode = {
+        id: crypto.randomUUID(),
+        label: "새 노드",
+        x,
+        y,
+        today: false,
+        detached: true,
+        children: []
+      };
+      state.children.push(newNode);
+      selectedId = newNode.id;
+      connectModeNodeId = null;
+      connectHoverNodeId = null;
       render();
       return newNode.id;
     }
@@ -1564,22 +1678,42 @@
       contextMenuNodeId = null;
     }
 
+    function hideCanvasContextMenu() {
+      canvasContextMenu.hidden = true;
+      canvasContextPoint = null;
+    }
+
+    function positionContextMenu(menu, clientX, clientY) {
+      menu.hidden = false;
+      menu.style.left = "0px";
+      menu.style.top = "0px";
+      const menuRect = menu.getBoundingClientRect();
+      const margin = 12;
+      const left = Math.min(clientX, window.innerWidth - menuRect.width - margin);
+      const top = Math.min(clientY, window.innerHeight - menuRect.height - margin);
+      menu.style.left = `${Math.max(margin, left)}px`;
+      menu.style.top = `${Math.max(margin, top)}px`;
+    }
+
     function showNodeContextMenu(clientX, clientY, nodeId) {
+      hideCanvasContextMenu();
       contextMenuNodeId = nodeId;
       const current = findNode(nodeId)?.node;
       nodeContextTodayBtn.textContent = current?.today ? "오늘할일 해제" : "오늘할일";
       nodeContextTodayBtn.disabled = !current;
       nodeContextConnectBtn.disabled = !current || current.id === state.id;
       nodeContextUnlinkBtn.disabled = !current || current.id === state.id || current.detached;
-      nodeContextMenu.hidden = false;
-      nodeContextMenu.style.left = "0px";
-      nodeContextMenu.style.top = "0px";
-      const menuRect = nodeContextMenu.getBoundingClientRect();
-      const margin = 12;
-      const left = Math.min(clientX, window.innerWidth - menuRect.width - margin);
-      const top = Math.min(clientY, window.innerHeight - menuRect.height - margin);
-      nodeContextMenu.style.left = `${Math.max(margin, left)}px`;
-      nodeContextMenu.style.top = `${Math.max(margin, top)}px`;
+      positionContextMenu(nodeContextMenu, clientX, clientY);
+    }
+
+    function showCanvasContextMenu(clientX, clientY) {
+      hideNodeContextMenu();
+      const point = toSvgPoint(clientX, clientY);
+      canvasContextPoint = {
+        x: (point.x - translate.x) / scale,
+        y: (point.y - translate.y) / scale
+      };
+      positionContextMenu(canvasContextMenu, clientX, clientY);
     }
 
     function applyViewport() {
@@ -1681,8 +1815,11 @@
 
     svg.addEventListener("contextmenu", (event) => {
       const nodeGroup = event.target.closest(".node");
-      if (!nodeGroup) return;
       event.preventDefault();
+      if (!nodeGroup) {
+        showCanvasContextMenu(event.clientX, event.clientY);
+        return;
+      }
       selectedId = nodeGroup.dataset.id;
       render();
       showNodeContextMenu(event.clientX, event.clientY, selectedId);
@@ -1734,9 +1871,15 @@
     });
 
     window.addEventListener("click", (event) => {
-      if (nodeContextMenu.hidden) return;
-      if (event.target.closest("#nodeContextMenu")) return;
-      hideNodeContextMenu();
+      if (!nodeContextMenu.hidden && !event.target.closest("#nodeContextMenu")) {
+        hideNodeContextMenu();
+      }
+      if (!canvasContextMenu.hidden && !event.target.closest("#canvasContextMenu")) {
+        hideCanvasContextMenu();
+      }
+      if (isProjectMenuOpen && !event.target.closest(".project-toolbar")) {
+        closeProjectMenu();
+      }
     });
 
     svg.addEventListener("mousedown", (event) => {
@@ -1815,6 +1958,8 @@
       }
       if (event.key === "Escape") {
         hideNodeContextMenu();
+        hideCanvasContextMenu();
+        closeProjectMenu();
         if (connectModeNodeId) {
           connectModeNodeId = null;
           connectHoverNodeId = null;
@@ -1870,6 +2015,17 @@
       connectModeNodeId = null;
       connectHoverNodeId = null;
       unlinkNode(targetId);
+    });
+
+    canvasContextAddBtn.addEventListener("click", () => {
+      const point = canvasContextPoint;
+      hideCanvasContextMenu();
+      if (!point) return;
+      addDetachedNodeAt(point.x, point.y);
+    });
+
+    projectMenuBtn.addEventListener("click", () => {
+      toggleProjectMenu();
     });
 
     projectList.addEventListener("click", (event) => {
