@@ -10,6 +10,8 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icons/icon-192.svg">
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2116213869162668"
+       crossorigin="anonymous"></script>
   <title>Mind Map Studio</title>
   <style>
     :root {
@@ -238,6 +240,29 @@
       stroke-width: 3;
     }
 
+    .preview-node {
+      cursor: pointer;
+    }
+
+    .preview-node rect {
+      rx: 18;
+      ry: 18;
+      fill: rgba(255, 250, 242, 0.52);
+      stroke: rgba(124, 106, 88, 0.52);
+      stroke-width: 2;
+      stroke-dasharray: 7 6;
+      filter: drop-shadow(0 10px 16px rgba(49, 34, 22, 0.08));
+    }
+
+    .preview-node text {
+      pointer-events: none;
+      fill: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+      text-anchor: middle;
+      dominant-baseline: middle;
+    }
+
     .node-badge {
       pointer-events: none;
     }
@@ -317,7 +342,7 @@
 
     .today-panel.collapsed {
       overflow: hidden;
-      padding-bottom: 14px;
+      padding-bottom: 8px;
     }
 
     .today-panel.collapsed #todayList {
@@ -365,6 +390,37 @@
       font-weight: 700;
       color: var(--text);
       line-height: 1.4;
+    }
+
+    .context-menu {
+      position: fixed;
+      z-index: 5;
+      min-width: 132px;
+      padding: 8px;
+      border-radius: 16px;
+      background: rgba(255, 250, 242, 0.97);
+      border: 1px solid rgba(124, 106, 88, 0.16);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 18px 36px rgba(55, 37, 24, 0.18);
+    }
+
+    .context-menu[hidden] {
+      display: none;
+    }
+
+    .context-menu button {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+      box-shadow: none;
+    }
+
+    .context-menu button:hover {
+      background: rgba(219, 201, 183, 0.68);
+      transform: none;
     }
 
     button.active {
@@ -448,7 +504,7 @@
       <span class="label">선택 노드</span>
       <input id="nodeLabel" type="text" placeholder="노드 제목">
       <button id="renameBtn">이름 변경</button>
-      <button id="addChildBtn" class="secondary">자식 추가</button>
+      <button id="addChildBtn" class="secondary">노드 추가</button>
       <button id="deleteBtn" class="secondary">선택 삭제</button>
     </div>
     <aside id="todayPanel" class="today-panel" aria-live="polite">
@@ -458,18 +514,22 @@
       </div>
       <div id="todayList" class="today-list"></div>
     </aside>
+    <div id="nodeContextMenu" class="context-menu" hidden>
+      <button id="nodeContextAddBtn" type="button">노드 추가</button>
+      <button id="nodeContextDeleteBtn" type="button">삭제</button>
+    </div>
   </main>
   <script>
     const STORAGE_KEY = "mind-map-studio-json";
     const PAN_SENSITIVITY = 1.35;
     const STORAGE_VERSION = 2;
-    const NODE_WIDTH = 140;
-    const NODE_HEIGHT = 56;
+    const NODE_WIDTH = 160;
+    const NODE_HEIGHT = 60;
     const ROOT_RADIUS = 42;
     const DEPTH_SCALE_STEP = 0.08;
     const MIN_NODE_SCALE = 0.7;
-    const NODE_HORIZONTAL_PADDING = 40;
-    const ROOT_PADDING = 42;
+    const NODE_HORIZONTAL_PADDING = 89;
+    const ROOT_PADDING = 84;
     const MIN_FONT_SIZE = 11;
     const BASE_FONT_SIZE = 14;
     const DEPTH_COLORS = [
@@ -515,17 +575,21 @@
     const todayPanel = document.getElementById("todayPanel");
     const todayPanelToggle = document.getElementById("todayPanelToggle");
     const todayList = document.getElementById("todayList");
+    const nodeContextMenu = document.getElementById("nodeContextMenu");
+    const nodeContextAddBtn = document.getElementById("nodeContextAddBtn");
+    const nodeContextDeleteBtn = document.getElementById("nodeContextDeleteBtn");
     const projectList = document.getElementById("projectList");
     const addProjectBtn = document.getElementById("addProjectBtn");
     const deleteProjectBtn = document.getElementById("deleteProjectBtn");
 
     let appState = loadState();
     let state = getActiveProject().data;
-    let selectedId = state.id;
+    let selectedId = null;
     let scale = 1;
     let translate = { x: 0, y: 0 };
     let dragInfo = null;
     let panInfo = null;
+    let contextMenuNodeId = null;
 
     function loadState() {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -641,8 +705,8 @@
 
     function syncActiveProjectState() {
       state = getActiveProject().data;
-      if (!findNode(selectedId, state)) {
-        selectedId = state.id;
+      if (selectedId && !findNode(selectedId, state)) {
+        selectedId = null;
       }
     }
 
@@ -713,13 +777,12 @@
       return Math.max(fontSize * 2.2, units * fontSize);
     }
 
-    function getNodeMetrics(node) {
-      const depth = getDepth(node.id);
+    function getMetricsForLabel(label, depth, isRoot = false) {
       const scale = getNodeScale(depth);
       const fontSize = getFontSize(scale);
-      const labelWidth = estimateLabelWidth(node.label, fontSize);
+      const labelWidth = estimateLabelWidth(label, fontSize);
 
-      if (isRootNode(node)) {
+      if (isRoot) {
         const radius = Math.max(ROOT_RADIUS * scale, (labelWidth + ROOT_PADDING) / 2);
         return { depth, scale, fontSize, labelWidth, radius, width: radius * 2, height: radius * 2 };
       }
@@ -734,12 +797,15 @@
       };
     }
 
-    function getNodeAnchor(node, target) {
+    function getNodeMetrics(node) {
+      return getMetricsForLabel(node.label, getDepth(node.id), isRootNode(node));
+    }
+
+    function getNodeAnchor(node, target, metrics = getNodeMetrics(node), isRoot = isRootNode(node)) {
       const dx = target.x - node.x;
       const dy = target.y - node.y;
-      const metrics = getNodeMetrics(node);
 
-      if (isRootNode(node)) {
+      if (isRoot) {
         const distance = Math.hypot(dx, dy) || 1;
         return {
           x: node.x + (dx / distance) * metrics.radius,
@@ -763,9 +829,9 @@
       };
     }
 
-    function buildPath(from, to) {
-      const start = getNodeAnchor(from, to);
-      const end = getNodeAnchor(to, from);
+    function buildPath(from, to, options = {}) {
+      const start = getNodeAnchor(from, to, options.fromMetrics, options.fromIsRoot);
+      const end = getNodeAnchor(to, from, options.toMetrics, options.toIsRoot);
       const dx = end.x - start.x;
       const dy = end.y - start.y;
       const absDx = Math.abs(dx);
@@ -810,10 +876,27 @@
       return walk(state, 0);
     }
 
+    function getPreviewNode(parentId) {
+      const parentResult = findNode(parentId);
+      if (!parentResult) return null;
+      const parent = parentResult.node;
+      const depth = getDepth(parentId) + 1;
+      const label = "새 노드";
+      const metrics = getMetricsForLabel(label, depth, false);
+      return {
+        id: `preview-${parent.id}`,
+        parentId: parent.id,
+        label,
+        x: parent.x + 220,
+        y: parent.y + Math.max(parent.children.length, 0) * 90 - 40,
+        metrics
+      };
+    }
+
     function render() {
       linksLayer.innerHTML = "";
       nodesLayer.innerHTML = "";
-      const selectedResult = findNode(selectedId);
+      const selectedResult = selectedId ? findNode(selectedId) : null;
       const relatedIds = new Set();
 
       if (selectedResult) {
@@ -827,12 +910,31 @@
           const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
           path.setAttribute("class", "link");
           path.setAttribute("d", buildPath(parent, node));
-          const isRelated = relatedIds.has(node.id) && relatedIds.has(parent.id);
+          const isRelated = !selectedResult || (relatedIds.has(node.id) && relatedIds.has(parent.id));
           path.style.stroke = isRelated ? "rgba(95, 78, 61, 0.62)" : "#d8cec2";
           path.style.strokeWidth = node.id === selectedId || parent.id === selectedId ? "4" : "3";
           linksLayer.appendChild(path);
         }
       });
+
+      if (selectedResult) {
+        const previewNode = getPreviewNode(selectedResult.node.id);
+        if (previewNode) {
+          const previewPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          previewPath.setAttribute("class", "link");
+          previewPath.setAttribute(
+            "d",
+            buildPath(selectedResult.node, previewNode, {
+              toMetrics: previewNode.metrics,
+              toIsRoot: false
+            })
+          );
+          previewPath.style.stroke = "rgba(124, 106, 88, 0.34)";
+          previewPath.style.strokeDasharray = "8 7";
+          previewPath.style.strokeWidth = "2.5";
+          linksLayer.appendChild(previewPath);
+        }
+      }
 
       items.forEach(({ node }) => {
         const isRoot = isRootNode(node);
@@ -856,8 +958,9 @@
           shape.setAttribute("width", String(metrics.width));
           shape.setAttribute("height", String(metrics.height));
         }
-        shape.setAttribute("fill", relatedIds.has(node.id) ? colorForDepth(getDepth(node.id)) : fadedNodeColor(getDepth(node.id)));
-        shape.setAttribute("stroke", node.today ? "#a74826" : relatedIds.has(node.id) ? "rgba(47, 36, 27, 0.18)" : "#d7cdc0");
+        const isRelated = !selectedResult || relatedIds.has(node.id);
+        shape.setAttribute("fill", isRelated ? colorForDepth(getDepth(node.id)) : fadedNodeColor(getDepth(node.id)));
+        shape.setAttribute("stroke", node.today ? "#a74826" : isRelated ? "rgba(47, 36, 27, 0.18)" : "#d7cdc0");
         if (node.today) {
           shape.setAttribute("stroke-width", "2.4");
         }
@@ -907,6 +1010,32 @@
         nodesLayer.appendChild(group);
       });
 
+      if (selectedResult) {
+        const previewNode = getPreviewNode(selectedResult.node.id);
+        if (previewNode) {
+          const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+          group.setAttribute("class", "preview-node");
+          group.dataset.parentId = previewNode.parentId;
+          group.setAttribute(
+            "transform",
+            `translate(${previewNode.x - previewNode.metrics.width / 2}, ${previewNode.y - previewNode.metrics.height / 2})`
+          );
+
+          const shape = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          shape.setAttribute("width", String(previewNode.metrics.width));
+          shape.setAttribute("height", String(previewNode.metrics.height));
+
+          const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          text.setAttribute("x", String(previewNode.metrics.width / 2));
+          text.setAttribute("y", String(previewNode.metrics.height / 2 + 2));
+          text.setAttribute("font-size", String(previewNode.metrics.fontSize));
+          text.textContent = previewNode.label;
+
+          group.append(shape, text);
+          nodesLayer.appendChild(group);
+        }
+      }
+
       applyViewport();
       syncSelectionUI();
       renderProjectList();
@@ -916,11 +1045,16 @@
     }
 
     function syncSelectionUI() {
-      const current = findNode(selectedId)?.node;
+      const current = selectedId ? findNode(selectedId)?.node : null;
       nodeLabelInput.value = current ? current.label : "";
+      nodeLabelInput.disabled = !current;
       todayBtn.classList.toggle("active", Boolean(current?.today));
       todayBtn.classList.toggle("secondary", !current?.today);
       todayBtn.textContent = current?.today ? "오늘할일 해제" : "오늘할일";
+      todayBtn.disabled = !current;
+      document.getElementById("renameBtn").disabled = !current;
+      document.getElementById("addChildBtn").disabled = !current;
+      document.getElementById("deleteBtn").disabled = !current || current.id === state.id;
       deleteProjectBtn.disabled = appState.projects.length <= 1;
     }
 
@@ -937,7 +1071,7 @@
       if (!nextProject) return;
       appState.activeProjectId = projectId;
       syncActiveProjectState();
-      selectedId = state.id;
+      selectedId = null;
       scale = 1;
       centerOnNode(state.id);
     }
@@ -950,7 +1084,7 @@
       appState.projects.push(nextProject);
       appState.activeProjectId = nextProject.id;
       syncActiveProjectState();
-      selectedId = state.id;
+      selectedId = null;
       scale = 1;
       centerOnNode(state.id);
     }
@@ -966,7 +1100,7 @@
       appState.projects = appState.projects.filter((project) => project.id !== activeProject.id);
       appState.activeProjectId = appState.projects[0].id;
       syncActiveProjectState();
-      selectedId = state.id;
+      selectedId = null;
       scale = 1;
       centerOnNode(state.id);
     }
@@ -1013,9 +1147,8 @@
 
     function addChild(parentId) {
       const result = findNode(parentId);
-      if (!result) return;
+      if (!result) return null;
       const parent = result.node;
-      const depth = getDepth(parentId) + 1;
       const newNode = {
         id: crypto.randomUUID(),
         label: "새 노드",
@@ -1027,6 +1160,7 @@
       parent.children.push(newNode);
       selectedId = newNode.id;
       render();
+      return newNode.id;
     }
 
     function deleteNode(targetId) {
@@ -1040,22 +1174,49 @@
       render();
     }
 
-    function renameNode() {
+    function commitNodeLabelChanges() {
+      if (!selectedId) return;
       const result = findNode(selectedId);
       if (!result) return;
       const nextLabel = nodeLabelInput.value.trim() || "이름 없는 노드";
+      if (result.node.label === nextLabel && (result.node.id !== state.id || getActiveProject().name === nextLabel)) {
+        return;
+      }
       if (result.node.id === state.id) {
         getActiveProject().name = nextLabel;
       }
-      result.node.label = nodeLabelInput.value.trim() || "이름 없는 노드";
+      result.node.label = nextLabel;
       render();
     }
 
+    function renameNode() {
+      commitNodeLabelChanges();
+    }
+
     function toggleToday() {
+      if (!selectedId) return;
       const result = findNode(selectedId);
       if (!result) return;
       result.node.today = !result.node.today;
       render();
+    }
+
+    function hideNodeContextMenu() {
+      nodeContextMenu.hidden = true;
+      contextMenuNodeId = null;
+    }
+
+    function showNodeContextMenu(clientX, clientY, nodeId) {
+      contextMenuNodeId = nodeId;
+      nodeContextMenu.hidden = false;
+      nodeContextMenu.style.left = "0px";
+      nodeContextMenu.style.top = "0px";
+      const menuRect = nodeContextMenu.getBoundingClientRect();
+      const margin = 12;
+      const left = Math.min(clientX, window.innerWidth - menuRect.width - margin);
+      const top = Math.min(clientY, window.innerHeight - menuRect.height - margin);
+      nodeContextMenu.style.left = `${Math.max(margin, left)}px`;
+      nodeContextMenu.style.top = `${Math.max(margin, top)}px`;
     }
 
     function applyViewport() {
@@ -1070,7 +1231,7 @@
     }
 
     function setScale(nextScale, anchorX, anchorY) {
-      const clamped = Math.max(0.5, Math.min(2.8, +nextScale.toFixed(2)));
+      const clamped = Math.max(0.2, Math.min(4.5, +nextScale.toFixed(2)));
       if (clamped === scale) return;
       const worldX = (anchorX - translate.x) / scale;
       const worldY = (anchorY - translate.y) / scale;
@@ -1091,6 +1252,10 @@
     }
 
     svg.addEventListener("pointerdown", (event) => {
+      hideNodeContextMenu();
+      if (event.target !== nodeLabelInput) {
+        commitNodeLabelChanges();
+      }
       if (event.button === 1) {
         event.preventDefault();
         panInfo = {
@@ -1102,9 +1267,16 @@
         return;
       }
 
+      const previewNode = event.target.closest(".preview-node");
+      if (previewNode) {
+        event.preventDefault();
+        addChild(previewNode.dataset.parentId);
+        return;
+      }
+
       const nodeGroup = event.target.closest(".node");
       if (!nodeGroup) {
-        selectedId = state.id;
+        selectedId = null;
         render();
         return;
       }
@@ -1124,6 +1296,15 @@
         }))
       };
       render();
+    });
+
+    svg.addEventListener("contextmenu", (event) => {
+      const nodeGroup = event.target.closest(".node");
+      if (!nodeGroup) return;
+      event.preventDefault();
+      selectedId = nodeGroup.dataset.id;
+      render();
+      showNodeContextMenu(event.clientX, event.clientY, selectedId);
     });
 
     svg.addEventListener("pointermove", (event) => {
@@ -1155,6 +1336,12 @@
       panInfo = null;
     });
 
+    window.addEventListener("click", (event) => {
+      if (nodeContextMenu.hidden) return;
+      if (event.target.closest("#nodeContextMenu")) return;
+      hideNodeContextMenu();
+    });
+
     svg.addEventListener("mousedown", (event) => {
       if (event.button === 1) {
         event.preventDefault();
@@ -1177,13 +1364,50 @@
     document.getElementById("renameBtn").addEventListener("click", renameNode);
     todayBtn.addEventListener("click", toggleToday);
     todayPanelToggle.addEventListener("click", toggleTodayPanel);
-    document.getElementById("addChildBtn").addEventListener("click", () => addChild(selectedId));
-    document.getElementById("deleteBtn").addEventListener("click", () => deleteNode(selectedId));
+    document.getElementById("addChildBtn").addEventListener("click", () => {
+      if (!selectedId) return;
+      addChild(selectedId);
+    });
+    document.getElementById("deleteBtn").addEventListener("click", () => {
+      if (!selectedId) return;
+      deleteNode(selectedId);
+    });
     addProjectBtn.addEventListener("click", addProject);
     deleteProjectBtn.addEventListener("click", deleteProject);
 
     nodeLabelInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter") renameNode();
+    });
+
+    nodeLabelInput.addEventListener("blur", () => {
+      commitNodeLabelChanges();
+    });
+
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        hideNodeContextMenu();
+      }
+      if (event.key !== "Delete") return;
+      const target = event.target;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target?.isContentEditable) {
+        return;
+      }
+      event.preventDefault();
+      if (!selectedId) return;
+      deleteNode(selectedId);
+    });
+
+    nodeContextDeleteBtn.addEventListener("click", () => {
+      const targetId = contextMenuNodeId || selectedId;
+      hideNodeContextMenu();
+      deleteNode(targetId);
+    });
+
+    nodeContextAddBtn.addEventListener("click", () => {
+      const targetId = contextMenuNodeId || selectedId;
+      hideNodeContextMenu();
+      if (!targetId) return;
+      addChild(targetId);
     });
 
     projectList.addEventListener("click", (event) => {
