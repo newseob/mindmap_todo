@@ -18,6 +18,7 @@
       --accent: #d06f45;
       --accent-strong: #a74826;
       --shadow: 0 18px 45px rgba(55, 37, 24, 0.16);
+      --bottom-ad-height: 84px;
     }
 
     * {
@@ -116,7 +117,7 @@
     .bottom-bar {
       position: absolute;
       left: 50%;
-      bottom: 22px;
+      bottom: calc(var(--bottom-ad-height) + 22px);
       transform: translateX(-50%);
       z-index: 2;
       display: flex;
@@ -253,7 +254,7 @@
     .today-panel {
       position: absolute;
       right: 22px;
-      bottom: 112px;
+      bottom: calc(var(--bottom-ad-height) + 112px);
       z-index: 2;
       width: min(320px, calc(100vw - 32px));
       max-height: min(46vh, 420px);
@@ -367,6 +368,18 @@
       line-height: 1.4;
     }
 
+    .bottom-ad {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 4;
+      padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+      background: rgba(247, 241, 232, 0.92);
+      border-top: 1px solid rgba(124, 106, 88, 0.14);
+      backdrop-filter: blur(10px);
+    }
+
     button.active {
       background: var(--accent-strong);
       color: #fffaf4;
@@ -376,7 +389,7 @@
       .bottom-bar {
         left: 16px;
         right: 16px;
-        bottom: 16px;
+        bottom: calc(var(--bottom-ad-height) + 16px);
         transform: none;
         width: auto;
         flex-wrap: wrap;
@@ -406,7 +419,7 @@
       .today-panel {
         left: 16px;
         right: 16px;
-        bottom: 146px;
+        bottom: calc(var(--bottom-ad-height) + 146px);
         width: auto;
         max-height: 32vh;
       }
@@ -459,7 +472,18 @@
       <div id="todayList" class="today-list"></div>
     </aside>
   </main>
+  <div class="bottom-ad">
+    <!-- 웹앱 하단 -->
+    <ins class="adsbygoogle"
+         style="display:block"
+         data-ad-client="ca-pub-2116213869162668"
+         data-ad-slot="4304571154"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+  </div>
 
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2116213869162668"
+       crossorigin="anonymous"></script>
   <script>
     const STORAGE_KEY = "mind-map-studio-json";
     const PAN_SENSITIVITY = 1.35;
@@ -1207,6 +1231,8 @@
         });
       });
     }
+
+    (adsbygoogle = window.adsbygoogle || []).push({});
 
     scale = 1;
     centerOnNode(state.id);
