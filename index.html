@@ -95,6 +95,24 @@
       max-width: min(520px, calc(100vw - 44px));
     }
 
+    .connect-mode-banner {
+      position: absolute;
+      top: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 3;
+      padding: 10px 16px;
+      border-radius: 999px;
+      background: rgba(47, 36, 27, 0.88);
+      color: #fffaf4;
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      box-shadow: 0 14px 30px rgba(31, 21, 15, 0.2);
+      backdrop-filter: blur(10px);
+      pointer-events: none;
+    }
+
     .project-chip {
       padding: 8px 12px;
       border-radius: 999px;
@@ -421,8 +439,9 @@
     .context-menu {
       position: fixed;
       z-index: 5;
-      min-width: 132px;
-      padding: 8px;
+      min-width: 112px;
+      max-width: 188px;
+      padding: 7px;
       border-radius: 16px;
       background: rgba(255, 250, 242, 0.97);
       border: 1px solid rgba(124, 106, 88, 0.16);
@@ -436,12 +455,18 @@
 
     .context-menu button {
       width: 100%;
-      padding: 10px 12px;
+      padding: 9px 11px;
       border-radius: 10px;
       background: transparent;
       color: var(--text);
       text-align: left;
       box-shadow: none;
+      font-size: 0.88rem;
+      line-height: 1.25;
+    }
+
+    .context-menu button:nth-of-type(4) {
+      margin-top: 6px;
     }
 
     .context-menu button:hover {
@@ -523,6 +548,7 @@
       </div>
       <div id="projectList" class="project-list"></div>
     </div>
+    <div id="connectModeBanner" class="connect-mode-banner" hidden>노드 연결 모드입니다. 연결할 부모 노드를 선택하거나 빈 공간 클릭, Esc로 취소하세요.</div>
 
     <svg id="mindmap" viewBox="0 0 1400 900" aria-label="mind map canvas">
       <g id="viewport">
@@ -532,14 +558,14 @@
     </svg>
 
     <div class="bottom-bar">
-      <button id="todayBtn" class="secondary">오늘할일</button>
+      <button id="todayBtn" class="secondary" hidden>오늘할일</button>
       <span class="label">선택 노드</span>
       <input id="nodeLabel" type="text" placeholder="노드 제목">
-      <button id="renameBtn">이름 변경</button>
-      <button id="addChildBtn" class="secondary">노드 추가</button>
-      <button id="deleteBtn" class="secondary">선택 삭제</button>
-      <button id="connectBtn" class="secondary">노드 연결</button>
-      <button id="unlinkBtn" class="secondary">연결 해제</button>
+      <button id="renameBtn" hidden>이름 변경</button>
+      <button id="addChildBtn" class="secondary" hidden>노드 추가</button>
+      <button id="deleteBtn" class="secondary">삭제</button>
+      <button id="connectBtn" class="secondary" hidden>노드 연결</button>
+      <button id="unlinkBtn" class="secondary" hidden>연결 해제</button>
     </div>
     <aside id="todayPanel" class="today-panel" aria-live="polite">
       <div class="today-panel-header">
@@ -552,7 +578,8 @@
       <button id="nodeContextAddBtn" type="button">노드 추가</button>
       <button id="nodeContextConnectBtn" type="button">노드 연결</button>
       <button id="nodeContextUnlinkBtn" type="button">노드 연결 해제</button>
-      <button id="nodeContextDeleteBtn" type="button">삭제</button>
+      <button id="nodeContextDeleteBtn" type="button">삭제(하위 노드 포함)</button>
+      <button id="nodeContextDeleteOnlyBtn" type="button">삭제(해당 노드만 삭제)</button>
     </div>
   </main>
   <script>
@@ -578,7 +605,7 @@
       "#7b7fca",
       "#aa7dcb",
       "#d784b8",
-      "#69b7d8"
+      "#8f8f8f"
     ];
     const FADED_DEPTH_COLORS = [
       "#ecd0d0",
@@ -590,7 +617,7 @@
       "#d6d8ea",
       "#e0d6ea",
       "#ead5e2",
-      "#d0e3ea"
+      "#dddddd"
     ];
 
         const sampleData = {
@@ -618,6 +645,8 @@
     const nodeContextConnectBtn = document.getElementById("nodeContextConnectBtn");
     const nodeContextUnlinkBtn = document.getElementById("nodeContextUnlinkBtn");
     const nodeContextDeleteBtn = document.getElementById("nodeContextDeleteBtn");
+    const nodeContextDeleteOnlyBtn = document.getElementById("nodeContextDeleteOnlyBtn");
+    const connectModeBanner = document.getElementById("connectModeBanner");
     const projectList = document.getElementById("projectList");
     const addProjectBtn = document.getElementById("addProjectBtn");
     const deleteProjectBtn = document.getElementById("deleteProjectBtn");
@@ -963,6 +992,20 @@
         }
       });
 
+      if (connectModeNodeId && connectHoverNodeId) {
+        const sourceNode = findNode(connectModeNodeId)?.node;
+        const hoverTargetNode = findNode(connectHoverNodeId)?.node;
+        if (sourceNode && hoverTargetNode) {
+          const connectPreviewPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          connectPreviewPath.setAttribute("class", "link");
+          connectPreviewPath.setAttribute("d", buildPath(hoverTargetNode, sourceNode));
+          connectPreviewPath.style.stroke = "rgba(167, 72, 38, 0.72)";
+          connectPreviewPath.style.strokeDasharray = "10 8";
+          connectPreviewPath.style.strokeWidth = "3";
+          linksLayer.appendChild(connectPreviewPath);
+        }
+      }
+
       if (selectedResult && !connectModeNodeId) {
         const previewNode = getPreviewNode(selectedResult.node.id);
         if (previewNode) {
@@ -1087,6 +1130,7 @@
       renderProjectList();
       renderTodayList();
       syncTodayPanelUI();
+      syncConnectModeBanner();
       saveState();
     }
 
@@ -1100,7 +1144,7 @@
       todayBtn.disabled = !current;
       document.getElementById("renameBtn").disabled = !current;
       document.getElementById("addChildBtn").disabled = !current;
-      connectBtn.disabled = !current || current.id === state.id || !current.detached;
+      connectBtn.disabled = !current || current.id === state.id;
       unlinkBtn.disabled = !current || current.id === state.id || current.detached;
       document.getElementById("deleteBtn").disabled = !current || current.id === state.id;
       deleteProjectBtn.disabled = appState.projects.length <= 1;
@@ -1188,6 +1232,10 @@
       todayPanelToggle.setAttribute("aria-label", isCollapsed ? "오늘할일 펼치기" : "오늘할일 숨기기");
     }
 
+    function syncConnectModeBanner() {
+      connectModeBanner.hidden = !connectModeNodeId;
+    }
+
     function toggleTodayPanel() {
       appState.todayPanelCollapsed = !appState.todayPanelCollapsed;
       render();
@@ -1228,13 +1276,15 @@
       const nodeResult = findNode(targetId);
       const nextParentResult = findNode(nextParentId);
       if (!nodeResult?.parent || !nextParentResult) return false;
-      if (!nodeResult.node.detached) return false;
+      if (getAncestorIds(nextParentId)?.includes(targetId)) return false;
+      if (!nodeResult.node.detached && nodeResult.parent.id === nextParentId) return false;
 
       nodeResult.parent.children = nodeResult.parent.children.filter((child) => child.id !== targetId);
       nodeResult.node.detached = false;
       nextParentResult.node.children.push(nodeResult.node);
       selectedId = nodeResult.node.id;
       connectModeNodeId = null;
+      connectHoverNodeId = null;
       render();
       return true;
     }
@@ -1242,7 +1292,7 @@
     function beginConnectMode(targetId) {
       if (!targetId) return;
       const current = findNode(targetId)?.node;
-      if (!current?.detached) return;
+      if (!current || current.id === state.id) return;
       connectModeNodeId = targetId;
       connectHoverNodeId = null;
       selectedId = targetId;
@@ -1258,16 +1308,34 @@
     function isConnectTarget(nodeId) {
       if (!connectModeNodeId || !nodeId || nodeId === connectModeNodeId) return false;
       const targetNode = findNode(nodeId)?.node;
-      return Boolean(targetNode && !targetNode.detached);
+      if (!targetNode || targetNode.detached) return false;
+      return !getAncestorIds(nodeId)?.includes(connectModeNodeId);
     }
 
-    function deleteNode(targetId) {
+    function deleteNode(targetId, mode = "subtree") {
       if (targetId === state.id) return;
       const result = findNode(targetId);
       if (!result?.parent) return;
-      const shouldDelete = window.confirm(`"${result.node.label}" 노드를 삭제할까요?\n하위 노드도 함께 삭제됩니다.`);
+      const confirmMessage = mode === "single"
+        ? `"${result.node.label}" 노드만 삭제할까요?\n하위 노드는 연결선 없는 분리 노드로 남습니다.`
+        : `"${result.node.label}" 노드를 삭제할까요?\n하위 노드도 함께 삭제됩니다.`;
+      const shouldDelete = window.confirm(confirmMessage);
       if (!shouldDelete) return;
-      result.parent.children = result.parent.children.filter((child) => child.id !== targetId);
+
+      const deleteIndex = result.parent.children.findIndex((child) => child.id === targetId);
+      if (deleteIndex === -1) return;
+
+      if (mode === "single") {
+        const nextChildren = result.node.children.map((child) => ({
+          ...child,
+          detached: true
+        }));
+        result.parent.children.splice(deleteIndex, 1);
+        state.children.push(...nextChildren);
+      } else {
+        result.parent.children.splice(deleteIndex, 1);
+      }
+
       selectedId = result.parent.id;
       render();
     }
@@ -1307,7 +1375,7 @@
     function showNodeContextMenu(clientX, clientY, nodeId) {
       contextMenuNodeId = nodeId;
       const current = findNode(nodeId)?.node;
-      nodeContextConnectBtn.disabled = !current || current.id === state.id || !current.detached;
+      nodeContextConnectBtn.disabled = !current || current.id === state.id;
       nodeContextUnlinkBtn.disabled = !current || current.id === state.id || current.detached;
       nodeContextMenu.hidden = false;
       nodeContextMenu.style.left = "0px";
@@ -1378,7 +1446,10 @@
       const nodeGroup = event.target.closest(".node");
       if (!nodeGroup) {
         if (connectModeNodeId) {
+          connectModeNodeId = null;
           connectHoverNodeId = null;
+          render();
+          return;
         }
         selectedId = null;
         render();
@@ -1536,6 +1607,12 @@
       const targetId = contextMenuNodeId || selectedId;
       hideNodeContextMenu();
       deleteNode(targetId);
+    });
+
+    nodeContextDeleteOnlyBtn.addEventListener("click", () => {
+      const targetId = contextMenuNodeId || selectedId;
+      hideNodeContextMenu();
+      deleteNode(targetId, "single");
     });
 
     nodeContextAddBtn.addEventListener("click", () => {
