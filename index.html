@@ -20,6 +20,8 @@
       --accent: #d06f45;
       --accent-strong: #a74826;
       --shadow: 0 18px 45px rgba(55, 37, 24, 0.16);
+      --right-tray-width: 320px;
+      --right-tray-gap: 22px;
     }
 
     * {
@@ -149,6 +151,19 @@
       border: 1px solid rgba(124, 106, 88, 0.16);
       backdrop-filter: blur(14px);
       box-shadow: var(--shadow);
+    }
+
+    .right-tray {
+      position: absolute;
+      top: 22px;
+      right: 22px;
+      z-index: 2;
+      width: var(--right-tray-width);
+      pointer-events: none;
+    }
+
+    .right-tray > * {
+      pointer-events: auto;
     }
 
     .bottom-bar .label {
@@ -319,20 +334,20 @@
       transition: stroke 140ms ease, stroke-width 140ms ease;
     }
 
-    .today-panel {
-      position: absolute;
-      right: 22px;
-      bottom: 112px;
-      z-index: 2;
-      width: min(320px, calc(100vw - 32px));
-      max-height: min(46vh, 420px);
-      overflow: auto;
-      padding: 14px 14px 12px;
+    .side-panel {
       border-radius: 20px;
       background: rgba(255, 250, 242, 0.94);
       border: 1px solid rgba(124, 106, 88, 0.16);
       backdrop-filter: blur(14px);
       box-shadow: var(--shadow);
+    }
+
+    .today-panel {
+      position: relative;
+      width: 100%;
+      max-height: min(46vh, 420px);
+      overflow: auto;
+      padding: 14px 14px 12px;
     }
 
     .today-panel-header {
@@ -384,20 +399,20 @@
       transform: none;
     }
 
-    .today-panel.collapsed {
+    .collapsible-panel.collapsed {
       overflow: hidden;
       padding-bottom: 8px;
     }
 
-    .today-panel.collapsed #todayList {
+    .collapsible-panel.collapsed .panel-body {
       display: none;
     }
 
-    .today-panel.collapsed .today-toggle {
+    .collapsible-panel.collapsed .panel-toggle {
       transform: none;
     }
 
-    .today-panel.collapsed .today-toggle::before {
+    .collapsible-panel.collapsed .panel-toggle::before {
       transform: translate(-50%, -50%) rotate(225deg);
     }
 
@@ -412,6 +427,47 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
+    }
+
+    .memo-panel {
+      position: relative;
+      width: 100%;
+      max-height: min(42vh, 400px);
+      overflow: visible;
+      padding: 7px 14px 8px;
+    }
+
+    .memo-panel .today-panel-header {
+      margin-bottom: 2px;
+    }
+
+    .memo-panel h2 {
+      font-size: 0.98rem;
+      line-height: 1.2;
+    }
+
+    .memo-panel .panel-body {
+      margin-top: 0;
+    }
+
+    .memo-input {
+      display: block;
+      margin: 0;
+      width: 100%;
+      min-height: 96px;
+      resize: none;
+      overflow: hidden;
+      border: 1px solid rgba(124, 106, 88, 0.18);
+      border-radius: 14px;
+      padding: 8px 11px;
+      background: rgba(255, 255, 255, 0.82);
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    .memo-input:focus {
+      outline: 2px solid rgba(208, 111, 69, 0.2);
+      border-color: rgba(208, 111, 69, 0.42);
     }
 
     .today-item {
@@ -535,10 +591,15 @@
         font-size: 0.84rem;
       }
 
-      .today-panel {
+      .right-tray {
+        top: auto;
         left: 16px;
         right: 16px;
         bottom: 184px;
+        width: auto;
+      }
+
+      .today-panel {
         width: auto;
         max-height: 32vh;
       }
@@ -586,20 +647,31 @@
       <button id="connectBtn" class="secondary" hidden>노드 연결</button>
       <button id="unlinkBtn" class="secondary" hidden>연결 해제</button>
     </div>
-    <aside id="todayPanel" class="today-panel" aria-live="polite">
-      <div class="today-panel-header">
-        <h2>오늘할일</h2>
-        <button id="todayPanelToggle" class="today-toggle" type="button" aria-expanded="true" aria-label="오늘할일 숨기기"></button>
-      </div>
-      <div id="todayList" class="today-list"></div>
+    <aside class="right-tray" aria-label="우측 트레이">
+      <aside id="todayPanel" class="today-panel side-panel collapsible-panel" aria-live="polite">
+        <div class="today-panel-header">
+          <h2>오늘할일</h2>
+          <button id="todayPanelToggle" class="today-toggle panel-toggle" type="button" aria-expanded="true" aria-label="오늘할일 숨기기"></button>
+        </div>
+        <div id="todayList" class="today-list panel-body"></div>
+      </aside>
+      <aside id="memoPanel" class="memo-panel side-panel collapsible-panel" aria-live="polite">
+        <div class="today-panel-header">
+          <h2>메모</h2>
+          <button id="memoPanelToggle" class="today-toggle panel-toggle" type="button" aria-expanded="true" aria-label="메모 숨기기"></button>
+        </div>
+        <div class="panel-body">
+          <textarea id="memoInput" class="memo-input" placeholder="오늘할일과 함께 참고할 메모를 적어두세요."></textarea>
+        </div>
+      </aside>
     </aside>
     <div id="nodeContextMenu" class="context-menu" hidden>
       <button id="nodeContextTodayBtn" type="button">오늘할일</button>
       <button id="nodeContextAddBtn" type="button">노드 추가</button>
       <button id="nodeContextConnectBtn" type="button">노드 연결</button>
       <button id="nodeContextUnlinkBtn" type="button">노드 연결 해제</button>
+      <button id="nodeContextDeleteOnlyBtn" type="button">삭제</button>
       <button id="nodeContextDeleteBtn" type="button">삭제(하위 노드 포함)</button>
-      <button id="nodeContextDeleteOnlyBtn" type="button">삭제(해당 노드만 삭제)</button>
     </div>
   </main>
   <script>
@@ -660,6 +732,9 @@
     const todayPanel = document.getElementById("todayPanel");
     const todayPanelToggle = document.getElementById("todayPanelToggle");
     const todayList = document.getElementById("todayList");
+    const memoPanel = document.getElementById("memoPanel");
+    const memoPanelToggle = document.getElementById("memoPanelToggle");
+    const memoInput = document.getElementById("memoInput");
     const nodeContextMenu = document.getElementById("nodeContextMenu");
     const nodeContextTodayBtn = document.getElementById("nodeContextTodayBtn");
     const nodeContextAddBtn = document.getElementById("nodeContextAddBtn");
@@ -709,6 +784,8 @@
         savedAt: new Date().toISOString(),
         activeProjectId: appState.activeProjectId,
         todayPanelCollapsed: Boolean(appState.todayPanelCollapsed),
+        memoPanelCollapsed: Boolean(appState.memoPanelCollapsed),
+        memo: typeof appState.memo === "string" ? appState.memo : "",
         projects: appState.projects
       }));
     }
@@ -746,6 +823,8 @@
       return {
         activeProjectId: firstProject.id,
         todayPanelCollapsed: false,
+        memoPanelCollapsed: false,
+        memo: "",
         projects: [firstProject]
       };
     }
@@ -759,6 +838,8 @@
       return {
         activeProjectId: firstProject.id,
         todayPanelCollapsed: false,
+        memoPanelCollapsed: false,
+        memo: "",
         projects: [firstProject]
       };
     }
@@ -783,6 +864,8 @@
       return {
         activeProjectId,
         todayPanelCollapsed: Boolean(rawState.todayPanelCollapsed),
+        memoPanelCollapsed: Boolean(rawState.memoPanelCollapsed),
+        memo: typeof rawState.memo === "string" ? rawState.memo : "",
         projects
       };
     }
@@ -1151,6 +1234,7 @@
       renderProjectList();
       renderTodayList();
       syncTodayPanelUI();
+      syncMemoPanelUI();
       syncConnectModeBanner();
       saveState();
     }
@@ -1253,12 +1337,33 @@
       todayPanelToggle.setAttribute("aria-label", isCollapsed ? "오늘할일 펼치기" : "오늘할일 숨기기");
     }
 
+    function syncMemoPanelUI() {
+      const isCollapsed = Boolean(appState.memoPanelCollapsed);
+      memoPanel.classList.toggle("collapsed", isCollapsed);
+      memoPanelToggle.setAttribute("aria-expanded", String(!isCollapsed));
+      memoPanelToggle.setAttribute("aria-label", isCollapsed ? "메모 펼치기" : "메모 숨기기");
+      if (document.activeElement !== memoInput && memoInput.value !== appState.memo) {
+        memoInput.value = appState.memo || "";
+      }
+      autoResizeMemoInput();
+    }
+
+    function autoResizeMemoInput() {
+      memoInput.style.height = "auto";
+      memoInput.style.height = `${memoInput.scrollHeight}px`;
+    }
+
     function syncConnectModeBanner() {
       connectModeBanner.hidden = !connectModeNodeId;
     }
 
     function toggleTodayPanel() {
       appState.todayPanelCollapsed = !appState.todayPanelCollapsed;
+      render();
+    }
+
+    function toggleMemoPanel() {
+      appState.memoPanelCollapsed = !appState.memoPanelCollapsed;
       render();
     }
 
@@ -1582,6 +1687,7 @@
     document.getElementById("renameBtn").addEventListener("click", renameNode);
     todayBtn.addEventListener("click", toggleToday);
     todayPanelToggle.addEventListener("click", toggleTodayPanel);
+    memoPanelToggle.addEventListener("click", toggleMemoPanel);
     document.getElementById("addChildBtn").addEventListener("click", () => {
       if (!selectedId) return;
       addChild(selectedId);
@@ -1605,6 +1711,12 @@
 
     nodeLabelInput.addEventListener("blur", () => {
       commitNodeLabelChanges();
+    });
+
+    memoInput.addEventListener("input", () => {
+      appState.memo = memoInput.value;
+      autoResizeMemoInput();
+      saveState();
     });
 
     window.addEventListener("keydown", (event) => {
