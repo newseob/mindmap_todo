@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#efe4d4">
   <title>앱 안내</title>
   <style>
     :root {
@@ -12,6 +13,21 @@
       --accent-strong: #a74826;
       --border: rgba(124, 106, 88, 0.16);
       --panel: rgba(255, 250, 242, 0.96);
+      --bg-accent: rgba(246, 189, 96, 0.18);
+      --bg-start: #fffaf3;
+      --bg-end: #f4e8d8;
+    }
+
+    :root[data-theme="dark"] {
+      --text: #f3e9db;
+      --muted: #b7aa9a;
+      --accent: #e08f63;
+      --accent-strong: #ffb185;
+      --border: rgba(158, 143, 126, 0.22);
+      --panel: rgba(35, 40, 47, 0.96);
+      --bg-accent: rgba(224, 143, 99, 0.18);
+      --bg-start: #1d2127;
+      --bg-end: #111417;
     }
 
     * {
@@ -23,8 +39,8 @@
       font-family: "Segoe UI", "Malgun Gothic", sans-serif;
       color: var(--text);
       background:
-        radial-gradient(circle at top left, rgba(246, 189, 96, 0.18), transparent 28%),
-        linear-gradient(180deg, #fffaf3 0%, #f4e8d8 100%);
+        radial-gradient(circle at top left, var(--bg-accent), transparent 28%),
+        linear-gradient(180deg, var(--bg-start) 0%, var(--bg-end) 100%);
     }
 
     main {
@@ -189,5 +205,16 @@
       </div>
     </section>
   </main>
+  <script>
+    try {
+      const stored = JSON.parse(localStorage.getItem("mind-map-studio-json") || "{}");
+      const isDark = stored?.themeMode === "dark";
+      document.documentElement.dataset.theme = isDark ? "dark" : "light";
+      const themeMeta = document.querySelector('meta[name="theme-color"]');
+      if (themeMeta) {
+        themeMeta.setAttribute("content", isDark ? "#161a20" : "#efe4d4");
+      }
+    } catch {}
+  </script>
 </body>
 </html>
