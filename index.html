@@ -238,6 +238,26 @@
       width: 100%;
     }
 
+    .info-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 10px;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .info-meta a {
+      color: var(--accent-strong);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .info-meta a:hover {
+      text-decoration: underline;
+    }
+
     .ad-panel {
       margin-top: auto;
     }
@@ -866,6 +886,10 @@
         <h2>앱 안내</h2>
         <p>마인드맵 할일은 프로젝트와 할 일을 마인드맵 구조로 정리하고, 오늘할일과 메모를 함께 관리할 수 있는 작업 정리 앱입니다.</p>
         <button id="openInfoWindowBtn" class="secondary" type="button">자세히 알아보기</button>
+        <div class="info-meta">
+          <span>문의: <a href="mailto:newseobdesign@gmail.com">newseobdesign@gmail.com</a></span>
+          <a href="./privacy.html" target="_blank" rel="noopener noreferrer">개인정보처리방침 보기</a>
+        </div>
       </aside>
       <aside id="adPanel" class="ad-panel side-panel" aria-label="광고 영역">
         <h2>광고</h2>
