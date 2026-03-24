@@ -184,7 +184,7 @@
       display: flex;
       align-items: center;
       gap: 12px;
-      width: min(860px, calc(100vw - 32px));
+      width: min(860px, calc(100% - 32px));
       padding: 14px;
       border-radius: 22px;
       background: rgba(255, 250, 242, 0.92);
@@ -755,7 +755,8 @@
       }
 
       .bottom-bar input {
-        flex: 1 1 calc(100% - 66px);
+        flex: 1 1 calc(100% - 112px);
+        max-width: 220px;
         width: auto;
         min-width: 0;
       }
