@@ -505,6 +505,39 @@
       border-color: rgba(208, 111, 69, 0.42);
     }
 
+    .ad-panel {
+      width: 100%;
+      padding: 12px 14px 14px;
+    }
+
+    .ad-panel h2 {
+      margin: 0 0 10px;
+      font-size: 0.98rem;
+      line-height: 1.2;
+    }
+
+    .ad-slot-box {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 112px;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px dashed rgba(124, 106, 88, 0.24);
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.78), rgba(246, 237, 225, 0.82));
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.55;
+    }
+
+    .ad-slot-box strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--accent-strong);
+      font-size: 0.92rem;
+    }
+
     .today-item {
       padding: 10px 12px;
       border-radius: 14px;
@@ -707,6 +740,21 @@
         <div class="panel-body">
           <textarea id="memoInput" class="memo-input" placeholder="오늘할일과 함께 참고할 메모를 적어두세요."></textarea>
         </div>
+      </aside>
+      <aside id="adPanel" class="ad-panel side-panel" aria-label="광고 영역">
+        <h2>광고</h2>
+        <div class="ad-slot-box">
+          <!-- 웹앱 광고 -->
+          <ins class="adsbygoogle"
+               style="display:block"
+               data-ad-client="ca-pub-2116213869162668"
+               data-ad-slot="4304571154"
+               data-ad-format="auto"
+               data-full-width-responsive="true"></ins>
+        </div>
+        <script>
+          (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
       </aside>
     </aside>
     <div id="nodeContextMenu" class="context-menu" hidden>
