@@ -148,9 +148,25 @@
       font-size: 0.9rem;
       font-weight: 600;
       letter-spacing: -0.01em;
+      white-space: pre-line;
+      text-align: center;
       box-shadow: 0 14px 30px rgba(31, 21, 15, 0.2);
       backdrop-filter: blur(10px);
       pointer-events: none;
+    }
+
+    .selection-marquee {
+      position: absolute;
+      z-index: 4;
+      border: 1.5px solid rgba(167, 72, 38, 0.85);
+      background: rgba(208, 111, 69, 0.14);
+      border-radius: 12px;
+      box-shadow: inset 0 0 0 1px rgba(255, 247, 238, 0.45);
+      pointer-events: none;
+    }
+
+    .selection-marquee[hidden] {
+      display: none;
     }
 
     .project-chip {
@@ -422,7 +438,7 @@
       dominant-baseline: middle;
     }
 
-    .node rect {
+    .node > rect {
       rx: 18;
       ry: 18;
       stroke: rgba(47, 36, 27, 0.18);
@@ -431,27 +447,59 @@
       transition: fill 140ms ease, stroke 140ms ease, stroke-width 140ms ease;
     }
 
-    .node circle {
+    .node > circle:not(.node-port) {
       stroke: rgba(47, 36, 27, 0.18);
       stroke-width: 1;
       filter: drop-shadow(0 14px 18px rgba(49, 34, 22, 0.14));
       transition: fill 140ms ease, stroke 140ms ease, stroke-width 140ms ease;
     }
 
-    .node.selected rect {
+    .node.selected > rect {
       stroke: #fff7ee;
-      stroke-width: 3;
+      stroke-width: 3.4;
+      filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) drop-shadow(0 0 0 3px rgba(167, 72, 38, 0.22));
     }
 
-    .node.selected circle {
+    .node.selected > circle:not(.node-port) {
       stroke: #fff7ee;
-      stroke-width: 3;
+      stroke-width: 3.4;
+      filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) drop-shadow(0 0 0 3px rgba(167, 72, 38, 0.22));
     }
 
-    .node.connect-target rect,
-    .node.connect-target circle {
+    .node.connect-target > rect,
+    .node.connect-target > circle:not(.node-port) {
       stroke: #a74826;
-      stroke-width: 3.2;
+      stroke-width: 4.2;
+      filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) drop-shadow(0 0 0 4px rgba(167, 72, 38, 0.26));
+    }
+
+    .node.connect-target text {
+      fill: #fff7ee;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+    }
+
+    .node-port {
+      fill: #fff8f0;
+      stroke: #a74826;
+      stroke-width: 2;
+      opacity: 0;
+      transform-origin: center;
+      transform: scale(0.72);
+      transition: opacity 120ms ease, transform 120ms ease, fill 120ms ease, stroke 120ms ease;
+      pointer-events: none;
+    }
+
+    .node.show-ports .node-port.active,
+    .node.connect-target .node-port.active {
+      opacity: 1;
+      transform: scale(1);
+      pointer-events: auto;
+    }
+
+    .node-port.active {
+      fill: #a74826;
+      stroke: #fff7ee;
     }
 
     .preview-node {
@@ -618,6 +666,7 @@
       background: rgba(255, 255, 255, 0.82);
       color: var(--text);
       line-height: 1.55;
+      font-family: "Malgun Gothic", "맑은 고딕", sans-serif;
     }
 
     .memo-input:focus {
@@ -697,6 +746,16 @@
       display: none;
     }
 
+    .context-menu-label {
+      margin: 0 0 8px;
+      padding: 4px 6px 10px;
+      border-bottom: 1px solid rgba(124, 106, 88, 0.18);
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
     .context-menu button {
       width: 100%;
       padding: 9px 11px;
@@ -707,6 +766,10 @@
       box-shadow: none;
       font-size: 0.88rem;
       line-height: 1.25;
+    }
+
+    .context-menu button[hidden] {
+      display: none;
     }
 
     .context-menu button:first-of-type {
@@ -837,6 +900,7 @@
           <g id="nodes"></g>
         </g>
       </svg>
+      <div id="selectionMarquee" class="selection-marquee" hidden></div>
 
       <div class="bottom-bar">
         <button id="todayBtn" class="secondary" hidden>오늘할일</button>
@@ -917,6 +981,7 @@
       </div>
     </div>
     <div id="nodeContextMenu" class="context-menu" hidden>
+      <div id="nodeContextSummary" class="context-menu-label" hidden></div>
       <button id="nodeContextTodayBtn" type="button">오늘할일</button>
       <button id="nodeContextAddBtn" type="button">노드 추가</button>
       <button id="nodeContextConnectBtn" type="button">노드 연결</button>
@@ -942,6 +1007,9 @@
     const ROOT_PADDING = 84;
     const MIN_FONT_SIZE = 11;
     const BASE_FONT_SIZE = 14;
+    const PORT_NAMES = ["top", "right", "bottom", "left"];
+    const PORT_HOVER_PADDING = 26;
+    const PORT_SNAP_DISTANCE = 28;
     const DEPTH_COLORS = [
       "#e58989",
       "#df9d84",
@@ -976,7 +1044,9 @@
       children: []
     };
 
+    const canvasStage = document.querySelector(".canvas-stage");
     const svg = document.getElementById("mindmap");
+    const selectionMarquee = document.getElementById("selectionMarquee");
     const viewport = document.getElementById("viewport");
     const linksLayer = document.getElementById("links");
     const nodesLayer = document.getElementById("nodes");
@@ -994,6 +1064,7 @@
     const infoModal = document.getElementById("infoModal");
     const closeInfoWindowBtn = document.getElementById("closeInfoWindowBtn");
     const nodeContextMenu = document.getElementById("nodeContextMenu");
+    const nodeContextSummary = document.getElementById("nodeContextSummary");
     const nodeContextTodayBtn = document.getElementById("nodeContextTodayBtn");
     const nodeContextAddBtn = document.getElementById("nodeContextAddBtn");
     const nodeContextConnectBtn = document.getElementById("nodeContextConnectBtn");
@@ -1014,15 +1085,25 @@
     let appState = loadState();
     let state = getActiveProject().data;
     let selectedId = null;
+    let selectedIds = new Set();
     let scale = 1;
     let translate = { x: 0, y: 0 };
     let dragInfo = null;
     let panInfo = null;
+    let selectionBoxInfo = null;
     let contextMenuNodeId = null;
     let canvasContextPoint = null;
     let isProjectMenuOpen = false;
+    let connectModeSourceIds = new Set();
     let connectModeNodeId = null;
     let connectHoverNodeId = null;
+    let connectHoverPort = null;
+    let connectPointerWorld = null;
+    let connectModePortMap = {};
+    let connectModeType = "parent";
+    let connectModeAnchorId = null;
+    let hoverNodeId = null;
+    let hoverPort = null;
     let undoStack = [];
     let memoHistorySnapshot = null;
 
@@ -1030,10 +1111,19 @@
       return {
         appState: structuredClone(appState),
         selectedId,
+        selectedIds: [...selectedIds],
         scale,
         translate: { ...translate },
+        connectModeSourceIds: [...connectModeSourceIds],
         connectModeNodeId,
-        connectHoverNodeId
+        connectHoverNodeId,
+        connectHoverPort,
+        connectPointerWorld: connectPointerWorld ? { ...connectPointerWorld } : null,
+        connectModePortMap: { ...connectModePortMap },
+        connectModeType,
+        connectModeAnchorId,
+        hoverNodeId,
+        hoverPort
       };
     }
 
@@ -1056,10 +1146,27 @@
     function restoreHistorySnapshot(snapshot) {
       appState = structuredClone(snapshot.appState);
       selectedId = snapshot.selectedId;
+      selectedIds = new Set(Array.isArray(snapshot.selectedIds) ? snapshot.selectedIds : (snapshot.selectedId ? [snapshot.selectedId] : []));
       scale = snapshot.scale;
       translate = { ...snapshot.translate };
+      connectModeSourceIds = new Set(Array.isArray(snapshot.connectModeSourceIds) ? snapshot.connectModeSourceIds : (snapshot.connectModeNodeId ? [snapshot.connectModeNodeId] : []));
       connectModeNodeId = snapshot.connectModeNodeId;
       connectHoverNodeId = snapshot.connectHoverNodeId;
+      connectHoverPort = normalizePort(snapshot.connectHoverPort);
+      connectPointerWorld = snapshot.connectPointerWorld
+        ? { ...snapshot.connectPointerWorld }
+        : null;
+      connectModePortMap = typeof snapshot.connectModePortMap === "object" && snapshot.connectModePortMap
+        ? Object.fromEntries(
+          Object.entries(snapshot.connectModePortMap)
+            .map(([key, value]) => [key, normalizePort(value)])
+            .filter(([, value]) => Boolean(value))
+        )
+        : {};
+      connectModeType = snapshot.connectModeType === "child" ? "child" : "parent";
+      connectModeAnchorId = snapshot.connectModeAnchorId || null;
+      hoverNodeId = snapshot.hoverNodeId || null;
+      hoverPort = normalizePort(snapshot.hoverPort);
       dragInfo = null;
       panInfo = null;
       contextMenuNodeId = null;
@@ -1073,6 +1180,59 @@
       const snapshot = undoStack.pop();
       if (!snapshot) return;
       restoreHistorySnapshot(snapshot);
+    }
+
+    function setSingleSelectedId(id) {
+      selectedId = id;
+      selectedIds = id ? new Set([id]) : new Set();
+    }
+
+    function addSelectedId(id) {
+      if (!id) return;
+      selectedId = id;
+      selectedIds.add(id);
+    }
+
+    function hideSelectionMarquee() {
+      selectionMarquee.hidden = true;
+    }
+
+    function updateSelectionMarquee(clientX, clientY) {
+      if (!selectionBoxInfo) return;
+      const stageRect = canvasStage.getBoundingClientRect();
+      const left = Math.min(selectionBoxInfo.startClientX, clientX) - stageRect.left;
+      const top = Math.min(selectionBoxInfo.startClientY, clientY) - stageRect.top;
+      const width = Math.abs(clientX - selectionBoxInfo.startClientX);
+      const height = Math.abs(clientY - selectionBoxInfo.startClientY);
+      selectionMarquee.hidden = false;
+      selectionMarquee.style.left = `${left}px`;
+      selectionMarquee.style.top = `${top}px`;
+      selectionMarquee.style.width = `${width}px`;
+      selectionMarquee.style.height = `${height}px`;
+    }
+
+    function applySelectionBoxSelection() {
+      if (!selectionBoxInfo) return;
+      const marqueeRect = selectionMarquee.getBoundingClientRect();
+      const nextSelectedIds = selectionBoxInfo.additive ? new Set(selectionIdsArray(selectionBoxInfo.initialSelectedIds)) : new Set();
+
+      nodesLayer.querySelectorAll(".node").forEach((nodeGroup) => {
+        const rect = nodeGroup.getBoundingClientRect();
+        const intersects = rect.right >= marqueeRect.left
+          && rect.left <= marqueeRect.right
+          && rect.bottom >= marqueeRect.top
+          && rect.top <= marqueeRect.bottom;
+        if (intersects) {
+          nextSelectedIds.add(nodeGroup.dataset.id);
+        }
+      });
+
+      selectedIds = nextSelectedIds;
+      selectedId = selectedIds.size ? [...selectedIds][selectedIds.size - 1] : null;
+    }
+
+    function selectionIdsArray(value) {
+      return Array.isArray(value) ? value : [];
     }
 
     function loadState() {
@@ -1116,6 +1276,10 @@
     function normalizeTree(node) {
       node.today = Boolean(node.today);
       node.detached = Boolean(node.detached);
+      node.linkPorts = {
+        from: normalizePort(node.linkPorts?.from),
+        to: normalizePort(node.linkPorts?.to)
+      };
       node.children = Array.isArray(node.children) ? node.children : [];
       node.children.forEach(normalizeTree);
       return node;
@@ -1198,9 +1362,17 @@
 
     function syncActiveProjectState() {
       state = getActiveProject().data;
-      if (selectedId && !findNode(selectedId, state)) {
+      selectedIds = new Set([...selectedIds].filter((id) => Boolean(findNode(id, state))));
+      if (selectedId && !selectedIds.has(selectedId)) {
         selectedId = null;
       }
+      if (!selectedId && selectedIds.size) {
+        selectedId = [...selectedIds][selectedIds.size - 1];
+      }
+    }
+
+    function hasMultipleSelection() {
+      return selectedIds.size > 1;
     }
 
     function collectSubtree(node, list = []) {
@@ -1210,6 +1382,315 @@
         collectSubtree(child, list);
       });
       return list;
+    }
+
+    function collectDragNodesForSelection() {
+      return [...selectedIds]
+        .map((id) => findNode(id)?.node)
+        .filter(Boolean);
+    }
+
+    function getSelectedDeleteTargets() {
+      return [...selectedIds].filter((id) => {
+        if (!id || id === state.id) return false;
+        const ancestors = getAncestorIds(id) || [];
+        return !ancestors.slice(0, -1).some((ancestorId) => selectedIds.has(ancestorId));
+      });
+    }
+
+    function canDeleteCurrentSelection() {
+      if (!selectedIds.size) return false;
+      return getSelectedDeleteTargets().length > 0;
+    }
+
+    function getSelectedConnectTargets() {
+      return [...selectedIds].filter((id) => {
+        if (!id || id === state.id) return false;
+        return Boolean(findNode(id));
+      });
+    }
+
+    function getSelectedUnlinkTargets() {
+      return getSelectedConnectTargets().filter((id) => {
+        return canUnlinkNode(id);
+      });
+    }
+
+    function canConnectCurrentSelection() {
+      return getSelectedConnectTargets().length > 0;
+    }
+
+    function canUnlinkCurrentSelection() {
+      return getSelectedUnlinkTargets().length > 0;
+    }
+
+    function canUnlinkNode(nodeId) {
+      const result = findNode(nodeId);
+      if (!result) return false;
+      return (Boolean(result.parent) && !result.node.detached) || result.node.children.length > 0;
+    }
+
+    function hasConnectMode() {
+      return connectModeSourceIds.size > 0;
+    }
+
+    function resetConnectMode() {
+      connectModeSourceIds = new Set();
+      connectModeNodeId = null;
+      connectHoverNodeId = null;
+      connectHoverPort = null;
+      connectPointerWorld = null;
+      connectModePortMap = {};
+      connectModeType = "parent";
+      connectModeAnchorId = null;
+    }
+
+    function getNearestPortForPoint(node, point, metrics = getNodeMetrics(node), isRoot = isRootNode(node)) {
+      if (!node || !point) return null;
+      return inferPort(node, point, metrics, isRoot);
+    }
+
+    function normalizePort(port) {
+      return PORT_NAMES.includes(port) ? port : null;
+    }
+
+    function getPortVector(port) {
+      switch (normalizePort(port)) {
+        case "top":
+          return { x: 0, y: -1 };
+        case "right":
+          return { x: 1, y: 0 };
+        case "bottom":
+          return { x: 0, y: 1 };
+        case "left":
+          return { x: -1, y: 0 };
+        default:
+          return { x: 1, y: 0 };
+      }
+    }
+
+    function getCenterForMetrics(metrics, isRoot) {
+      return isRoot
+        ? { x: metrics.radius, y: metrics.radius }
+        : { x: metrics.width / 2, y: metrics.height / 2 };
+    }
+
+    function getPortOffset(port, metrics, isRoot) {
+      const normalizedPort = normalizePort(port) || "right";
+      if (isRoot) {
+        switch (normalizedPort) {
+          case "top":
+            return { x: 0, y: -metrics.radius };
+          case "right":
+            return { x: metrics.radius, y: 0 };
+          case "bottom":
+            return { x: 0, y: metrics.radius };
+          case "left":
+            return { x: -metrics.radius, y: 0 };
+          default:
+            return { x: metrics.radius, y: 0 };
+        }
+      }
+
+      switch (normalizedPort) {
+        case "top":
+          return { x: 0, y: -metrics.height / 2 };
+        case "right":
+          return { x: metrics.width / 2, y: 0 };
+        case "bottom":
+          return { x: 0, y: metrics.height / 2 };
+        case "left":
+          return { x: -metrics.width / 2, y: 0 };
+        default:
+          return { x: metrics.width / 2, y: 0 };
+      }
+    }
+
+    function getLocalPortPosition(port, metrics, isRoot) {
+      const center = getCenterForMetrics(metrics, isRoot);
+      const offset = getPortOffset(port, metrics, isRoot);
+      return {
+        x: center.x + offset.x,
+        y: center.y + offset.y
+      };
+    }
+
+    function getPortPosition(node, port, metrics = getNodeMetrics(node), isRoot = isRootNode(node)) {
+      const offset = getPortOffset(port, metrics, isRoot);
+      return {
+        x: node.x + offset.x,
+        y: node.y + offset.y
+      };
+    }
+
+    function inferPort(node, target, metrics = getNodeMetrics(node), isRoot = isRootNode(node)) {
+      const dx = target.x - node.x;
+      const dy = target.y - node.y;
+
+      if (isRoot) {
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          return dx >= 0 ? "right" : "left";
+        }
+        return dy >= 0 ? "bottom" : "top";
+      }
+
+      if (Math.abs(dx) >= Math.abs(dy) * 0.7) {
+        return dx >= 0 ? "right" : "left";
+      }
+
+      return dy >= 0 ? "bottom" : "top";
+    }
+
+    function getLinkPorts(parent, child) {
+      return {
+        from: inferPort(parent, child),
+        to: inferPort(child, parent)
+      };
+    }
+
+    function setLinkPorts(childNode, parentNode, ports = {}) {
+      childNode.linkPorts = {
+        from: null,
+        to: null
+      };
+    }
+
+    function clearLinkPorts(node) {
+      node.linkPorts = {
+        from: null,
+        to: null
+      };
+    }
+
+    function buildPath(from, to, options = {}) {
+      const fromMetrics = options.fromMetrics || getNodeMetrics(from);
+      const toMetrics = options.toMetrics || getNodeMetrics(to);
+      const fromIsRoot = options.fromIsRoot ?? isRootNode(from);
+      const toIsRoot = options.toIsRoot ?? isRootNode(to);
+      const fromPort = normalizePort(options.fromPort) || inferPort(from, to, fromMetrics, fromIsRoot);
+      const toPort = normalizePort(options.toPort) || inferPort(to, from, toMetrics, toIsRoot);
+      const start = getPortPosition(from, fromPort, fromMetrics, fromIsRoot);
+      const end = getPortPosition(to, toPort, toMetrics, toIsRoot);
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      const distance = Math.hypot(dx, dy) || 1;
+      const startVector = getPortVector(fromPort);
+      const endVector = getPortVector(toPort);
+      const startPull = Math.max(34, Math.min(160, distance * 0.34));
+      const endPull = Math.max(34, Math.min(160, distance * 0.34));
+      const startControlX = start.x + startVector.x * startPull;
+      const startControlY = start.y + startVector.y * startPull;
+      const endControlX = end.x + endVector.x * endPull;
+      const endControlY = end.y + endVector.y * endPull;
+
+      return `M ${start.x} ${start.y} C ${startControlX} ${startControlY}, ${endControlX} ${endControlY}, ${end.x} ${end.y}`;
+    }
+
+    function getWorldPoint(clientX, clientY) {
+      const point = toSvgPoint(clientX, clientY);
+      return {
+        x: (point.x - translate.x) / scale,
+        y: (point.y - translate.y) / scale
+      };
+    }
+
+    function findNearbyNodeId(clientX, clientY, filter = () => true) {
+      const worldPoint = getWorldPoint(clientX, clientY);
+      let bestNodeId = null;
+      let bestDistance = Infinity;
+
+      flatten(state).forEach(({ node }) => {
+        if (!filter(node)) return;
+        const metrics = getNodeMetrics(node);
+        const isRoot = isRootNode(node);
+        const padding = PORT_HOVER_PADDING / scale;
+        let withinBounds = false;
+
+        if (isRoot) {
+          const radius = metrics.radius + padding;
+          const dx = worldPoint.x - node.x;
+          const dy = worldPoint.y - node.y;
+          withinBounds = Math.hypot(dx, dy) <= radius;
+        } else {
+          withinBounds = worldPoint.x >= node.x - metrics.width / 2 - padding
+            && worldPoint.x <= node.x + metrics.width / 2 + padding
+            && worldPoint.y >= node.y - metrics.height / 2 - padding
+            && worldPoint.y <= node.y + metrics.height / 2 + padding;
+        }
+
+        if (!withinBounds) return;
+        const distance = Math.hypot(worldPoint.x - node.x, worldPoint.y - node.y);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestNodeId = node.id;
+        }
+      });
+
+      return bestNodeId;
+    }
+
+    function getClosestPort(node, clientX, clientY) {
+      if (!node) return null;
+      const worldPoint = getWorldPoint(clientX, clientY);
+      const maxDistance = PORT_SNAP_DISTANCE / scale;
+      let bestPort = null;
+      let bestDistance = Infinity;
+
+      PORT_NAMES.forEach((port) => {
+        const position = getPortPosition(node, port);
+        const distance = Math.hypot(worldPoint.x - position.x, worldPoint.y - position.y);
+        if (distance <= maxDistance && distance < bestDistance) {
+          bestDistance = distance;
+          bestPort = port;
+        }
+      });
+
+      return bestPort;
+    }
+
+    function getConnectTargetPort(node, clientX, clientY) {
+      const directPort = getClosestPort(node, clientX, clientY);
+      if (directPort) return directPort;
+      const sources = [...connectModeSourceIds]
+        .map((id) => findNode(id)?.node)
+        .filter(Boolean);
+      if (!sources.length) return null;
+      const centroid = sources.reduce((acc, sourceNode) => {
+        acc.x += sourceNode.x;
+        acc.y += sourceNode.y;
+        return acc;
+      }, { x: 0, y: 0 });
+      centroid.x /= sources.length;
+      centroid.y /= sources.length;
+      return inferPort(node, centroid);
+    }
+
+    function getConnectPreviewTarget(sourceNode) {
+      if (connectHoverNodeId && connectHoverPort) {
+        const hoverTargetNode = findNode(connectHoverNodeId)?.node;
+        if (hoverTargetNode) {
+          return {
+            node: hoverTargetNode,
+            metrics: getNodeMetrics(hoverTargetNode),
+            isRoot: isRootNode(hoverTargetNode),
+            fromPort: connectHoverPort,
+            toPort: inferPort(sourceNode, hoverTargetNode)
+          };
+        }
+      }
+
+      if (!connectPointerWorld) return null;
+      const previewTarget = {
+        x: connectPointerWorld.x,
+        y: connectPointerWorld.y
+      };
+      return {
+        node: previewTarget,
+        metrics: { width: 0, height: 0, radius: 0 },
+        isRoot: false,
+        fromPort: inferPort(previewTarget, sourceNode, null, false),
+        toPort: inferPort(sourceNode, previewTarget)
+      };
     }
 
     function getAncestorIds(targetId, node = state, trail = []) {
@@ -1297,51 +1778,6 @@
       return getMetricsForLabel(node.label, getDepth(node.id), isRootNode(node));
     }
 
-    function getNodeAnchor(node, target, metrics = getNodeMetrics(node), isRoot = isRootNode(node)) {
-      const dx = target.x - node.x;
-      const dy = target.y - node.y;
-
-      if (isRoot) {
-        const distance = Math.hypot(dx, dy) || 1;
-        return {
-          x: node.x + (dx / distance) * metrics.radius,
-          y: node.y + (dy / distance) * metrics.radius
-        };
-      }
-
-      const halfWidth = metrics.width / 2;
-      const halfHeight = metrics.height / 2;
-
-      if (Math.abs(dx) >= Math.abs(dy) * 0.3) {
-        return {
-          x: node.x + (dx >= 0 ? halfWidth : -halfWidth),
-          y: node.y
-        };
-      }
-
-      return {
-        x: node.x,
-        y: node.y + (dy >= 0 ? halfHeight : -halfHeight)
-      };
-    }
-
-    function buildPath(from, to, options = {}) {
-      const start = getNodeAnchor(from, to, options.fromMetrics, options.fromIsRoot);
-      const end = getNodeAnchor(to, from, options.toMetrics, options.toIsRoot);
-      const dx = end.x - start.x;
-      const dy = end.y - start.y;
-      const absDx = Math.abs(dx);
-      const absDy = Math.abs(dy);
-      const horizontalPull = Math.max(40, Math.min(150, absDx * 0.42));
-      const verticalPull = Math.max(18, Math.min(110, absDy * 0.3));
-      const startControlX = start.x + Math.sign(dx || 1) * horizontalPull;
-      const endControlX = end.x - Math.sign(dx || 1) * horizontalPull;
-      const startControlY = start.y + Math.sign(dy) * verticalPull;
-      const endControlY = end.y - Math.sign(dy) * verticalPull;
-
-      return `M ${start.x} ${start.y} C ${startControlX} ${startControlY}, ${endControlX} ${endControlY}, ${end.x} ${end.y}`;
-    }
-
     function colorForDepth(depth) {
       if (depth < DEPTH_COLORS.length) {
         return DEPTH_COLORS[depth];
@@ -1393,41 +1829,47 @@
       linksLayer.innerHTML = "";
       nodesLayer.innerHTML = "";
       const selectedResult = selectedId ? findNode(selectedId) : null;
-      const relatedIds = new Set();
-
-      if (selectedResult) {
-        collectSubtree(selectedResult.node).forEach((node) => relatedIds.add(node.id));
-        (getAncestorIds(selectedId) || []).forEach((id) => relatedIds.add(id));
-      }
+      const hasSelection = selectedIds.size > 0;
 
       const items = flatten(state);
       items.forEach(({ node, parent }) => {
         if (parent && !node.detached) {
+          const linkPorts = getLinkPorts(parent, node);
           const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
           path.setAttribute("class", "link");
-          path.setAttribute("d", buildPath(parent, node));
-          const isRelated = !selectedResult || (relatedIds.has(node.id) && relatedIds.has(parent.id));
-          path.style.stroke = isRelated ? "rgba(95, 78, 61, 0.62)" : "#d8cec2";
-          path.style.strokeWidth = node.id === selectedId || parent.id === selectedId ? "4" : "3";
+          path.setAttribute("d", buildPath(parent, node, {
+            fromPort: linkPorts.from,
+            toPort: linkPorts.to
+          }));
+          const isSelectedLink = selectedIds.has(node.id) || selectedIds.has(parent.id);
+          path.style.stroke = hasSelection && !isSelectedLink ? "#d8cec2" : "rgba(95, 78, 61, 0.62)";
+          path.style.strokeWidth = "3";
           linksLayer.appendChild(path);
         }
       });
 
-      if (connectModeNodeId && connectHoverNodeId) {
-        const sourceNode = findNode(connectModeNodeId)?.node;
-        const hoverTargetNode = findNode(connectHoverNodeId)?.node;
-        if (sourceNode && hoverTargetNode) {
+      if (hasConnectMode()) {
+        [...connectModeSourceIds].forEach((sourceId) => {
+          const sourceNode = findNode(sourceId)?.node;
+          if (!sourceNode) return;
+          const previewTarget = getConnectPreviewTarget(sourceNode);
+          if (!previewTarget) return;
           const connectPreviewPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
           connectPreviewPath.setAttribute("class", "link");
-          connectPreviewPath.setAttribute("d", buildPath(hoverTargetNode, sourceNode));
+          connectPreviewPath.setAttribute("d", buildPath(previewTarget.node, sourceNode, {
+            fromMetrics: previewTarget.metrics,
+            fromIsRoot: previewTarget.isRoot,
+            fromPort: previewTarget.fromPort,
+            toPort: previewTarget.toPort
+          }));
           connectPreviewPath.style.stroke = "rgba(167, 72, 38, 0.72)";
           connectPreviewPath.style.strokeDasharray = "10 8";
           connectPreviewPath.style.strokeWidth = "3";
           linksLayer.appendChild(connectPreviewPath);
-        }
+        });
       }
 
-      if (selectedResult && !connectModeNodeId) {
+      if (selectedResult && !hasConnectMode()) {
         const previewNode = getPreviewNode(selectedResult.node.id);
         if (previewNode) {
           const previewPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -1450,7 +1892,7 @@
         const isRoot = isRootNode(node);
         const metrics = getNodeMetrics(node);
         const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        group.setAttribute("class", `node${node.id === selectedId ? " selected" : ""}${node.id === connectHoverNodeId ? " connect-target" : ""}`);
+        group.setAttribute("class", `node${selectedIds.has(node.id) ? " selected" : ""}${node.id === connectHoverNodeId ? " connect-target" : ""}`);
         group.dataset.id = node.id;
         group.setAttribute(
           "transform",
@@ -1468,9 +1910,9 @@
           shape.setAttribute("width", String(metrics.width));
           shape.setAttribute("height", String(metrics.height));
         }
-        const isRelated = !selectedResult || relatedIds.has(node.id);
-        shape.setAttribute("fill", isRelated ? colorForDepth(getDepth(node.id)) : fadedNodeColor(getDepth(node.id)));
-        shape.setAttribute("stroke", node.today ? "#a74826" : isRelated ? "rgba(47, 36, 27, 0.18)" : "#d7cdc0");
+        const isSelected = selectedIds.has(node.id);
+        shape.setAttribute("fill", hasSelection && !isSelected ? fadedNodeColor(getDepth(node.id)) : colorForDepth(getDepth(node.id)));
+        shape.setAttribute("stroke", node.today ? "#a74826" : hasSelection && !isSelected ? "#d7cdc0" : "rgba(47, 36, 27, 0.18)");
         if (node.today) {
           shape.setAttribute("stroke-width", "2.4");
         }
@@ -1520,7 +1962,7 @@
         nodesLayer.appendChild(group);
       });
 
-      if (selectedResult && !connectModeNodeId) {
+      if (selectedResult && !hasConnectMode()) {
         const previewNode = getPreviewNode(selectedResult.node.id);
         if (previewNode) {
           const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -1558,8 +2000,11 @@
     }
 
     function syncSelectionUI() {
-      const current = selectedId ? findNode(selectedId)?.node : null;
+      const hasMultiSelection = selectedIds.size > 1;
+      const current = !hasMultiSelection && selectedId ? findNode(selectedId)?.node : null;
+      const canDeleteSelection = canDeleteCurrentSelection();
       nodeLabelInput.value = current ? current.label : "";
+      nodeLabelInput.placeholder = hasMultiSelection ? `${selectedIds.size}개 노드 선택됨` : "노드 제목";
       nodeLabelInput.disabled = !current;
       todayBtn.classList.toggle("active", Boolean(current?.today));
       todayBtn.classList.toggle("secondary", !current?.today);
@@ -1567,9 +2012,9 @@
       todayBtn.disabled = !current;
       document.getElementById("renameBtn").disabled = !current;
       document.getElementById("addChildBtn").disabled = !current;
-      connectBtn.disabled = !current || current.id === state.id;
-      unlinkBtn.disabled = !current || current.id === state.id || current.detached;
-      document.getElementById("deleteBtn").disabled = !current || current.id === state.id;
+      connectBtn.disabled = !canConnectCurrentSelection();
+      unlinkBtn.disabled = !canUnlinkCurrentSelection();
+      document.getElementById("deleteBtn").disabled = !canDeleteSelection;
       deleteProjectBtn.disabled = appState.projects.length <= 1;
     }
 
@@ -1611,7 +2056,7 @@
       pushUndoSnapshot();
       appState.activeProjectId = projectId;
       syncActiveProjectState();
-      selectedId = null;
+      setSingleSelectedId(null);
       scale = 1;
       closeProjectMenu();
       centerOnNode(state.id);
@@ -1626,7 +2071,7 @@
       appState.projects.push(nextProject);
       appState.activeProjectId = nextProject.id;
       syncActiveProjectState();
-      selectedId = null;
+      setSingleSelectedId(null);
       scale = 1;
       openProjectMenu();
       centerOnNode(state.id);
@@ -1644,7 +2089,7 @@
       appState.projects = appState.projects.filter((project) => project.id !== activeProject.id);
       appState.activeProjectId = appState.projects[0].id;
       syncActiveProjectState();
-      selectedId = null;
+      setSingleSelectedId(null);
       scale = 1;
       openProjectMenu();
       centerOnNode(state.id);
@@ -1702,7 +2147,11 @@
     }
 
     function syncConnectModeBanner() {
-      connectModeBanner.hidden = !connectModeNodeId;
+      connectModeBanner.hidden = !hasConnectMode();
+      if (!hasConnectMode()) return;
+      connectModeBanner.textContent = connectModeSourceIds.size > 1
+        ? `노드 연결 모드입니다.\n연결할 부모 노드를 선택하세요.\n빈 공간 클릭 또는 Esc로 취소할 수 있습니다.`
+        : "노드 연결 모드입니다.\n연결할 부모 노드를 선택하세요.\n빈 공간 클릭 또는 Esc로 취소할 수 있습니다.";
     }
 
     function toggleTodayPanel() {
@@ -1737,10 +2186,14 @@
         y: parent.y + Math.max(parent.children.length, 0) * 90 - 40,
         today: false,
         detached: false,
+        linkPorts: {
+          from: null,
+          to: null
+        },
         children: []
       };
       parent.children.push(newNode);
-      selectedId = newNode.id;
+      setSingleSelectedId(newNode.id);
       render();
       return newNode.id;
     }
@@ -1754,29 +2207,78 @@
         y,
         today: false,
         detached: true,
+        linkPorts: {
+          from: null,
+          to: null
+        },
         children: []
       };
       state.children.push(newNode);
-      selectedId = newNode.id;
-      connectModeNodeId = null;
-      connectHoverNodeId = null;
+      setSingleSelectedId(newNode.id);
+      resetConnectMode();
       render();
       return newNode.id;
     }
 
     function unlinkNode(targetId) {
-      if (!targetId || targetId === state.id) return;
+      if (!targetId) return;
       const result = findNode(targetId);
-      if (!result?.parent) return;
+      if (!result || !canUnlinkNode(targetId)) return;
       pushUndoSnapshot();
-      result.parent.children = result.parent.children.filter((child) => child.id !== targetId);
-      result.node.detached = true;
-      state.children.push(result.node);
-      selectedId = result.node.id;
+      unlinkNodeOneLevel(targetId);
+      setSingleSelectedId(result.node.id);
       render();
     }
 
-    function reattachNode(targetId, nextParentId) {
+    function unlinkNodeOneLevel(targetId) {
+      const result = findNode(targetId);
+      if (!result) return false;
+      let changed = false;
+
+      if (result.parent && !result.node.detached) {
+        result.parent.children = result.parent.children.filter((child) => child.id !== targetId);
+        result.node.detached = true;
+        clearLinkPorts(result.node);
+        state.children.push(result.node);
+        changed = true;
+      }
+
+      if (result.node.children.length) {
+        const childNodes = result.node.children.splice(0);
+        childNodes.forEach((childNode) => {
+          childNode.detached = true;
+          clearLinkPorts(childNode);
+          state.children.push(childNode);
+        });
+        changed = true;
+      }
+
+      return changed;
+    }
+
+    function unlinkSelectedNodes() {
+      const targetIds = getSelectedUnlinkTargets();
+      if (!targetIds.length) return;
+      if (targetIds.length === 1) {
+        unlinkNode(targetIds[0]);
+        return;
+      }
+
+      pushUndoSnapshot();
+      let changed = false;
+      targetIds.forEach((targetId) => {
+        if (unlinkNodeOneLevel(targetId)) {
+          changed = true;
+        }
+      });
+      if (!changed) return;
+
+      selectedIds = new Set(targetIds);
+      selectedId = targetIds[targetIds.length - 1] || null;
+      render();
+    }
+
+    function reattachNode(targetId, nextParentId, ports = {}) {
       if (!targetId || !nextParentId || targetId === nextParentId) return false;
       const nodeResult = findNode(targetId);
       const nextParentResult = findNode(nextParentId);
@@ -1787,21 +2289,75 @@
 
       nodeResult.parent.children = nodeResult.parent.children.filter((child) => child.id !== targetId);
       nodeResult.node.detached = false;
+      setLinkPorts(nodeResult.node, nextParentResult.node, ports);
       nextParentResult.node.children.push(nodeResult.node);
-      selectedId = nodeResult.node.id;
-      connectModeNodeId = null;
-      connectHoverNodeId = null;
+      setSingleSelectedId(nodeResult.node.id);
+      resetConnectMode();
       render();
       return true;
     }
 
-    function beginConnectMode(targetId) {
-      if (!targetId) return;
-      const current = findNode(targetId)?.node;
-      if (!current || current.id === state.id) return;
-      connectModeNodeId = targetId;
+    function reattachSelectedNodes(nextParentId, ports = {}) {
+      const targetIds = getSelectedConnectTargets().filter((id) => id !== nextParentId);
+      if (!targetIds.length || !nextParentId) return false;
+      const nextParentResult = findNode(nextParentId);
+      if (!nextParentResult) return false;
+
+      const validTargetIds = targetIds.filter((targetId) => {
+        const nodeResult = findNode(targetId);
+        if (!nodeResult?.parent) return false;
+        if (getAncestorIds(nextParentId)?.includes(targetId)) return false;
+        if (!nodeResult.node.detached && nodeResult.parent.id === nextParentId) return false;
+        return true;
+      });
+
+      if (!validTargetIds.length) return false;
+      pushUndoSnapshot();
+
+      validTargetIds.forEach((targetId) => {
+        const nodeResult = findNode(targetId);
+        if (!nodeResult?.parent) return;
+        nodeResult.parent.children = nodeResult.parent.children.filter((child) => child.id !== targetId);
+        nodeResult.node.detached = false;
+        setLinkPorts(nodeResult.node, nextParentResult.node, {
+          from: ports.from,
+          to: normalizePort(ports.toMap?.[targetId]) || normalizePort(connectModePortMap[targetId])
+        });
+        nextParentResult.node.children.push(nodeResult.node);
+      });
+
+      selectedIds = new Set(validTargetIds);
+      selectedId = validTargetIds[validTargetIds.length - 1];
+      resetConnectMode();
+      render();
+      return true;
+    }
+
+    function beginConnectMode(targetId, sourcePort = null) {
+      const isChildMode = Boolean(sourcePort);
+      const sourceIds = isChildMode
+        ? [targetId]
+        : (hasMultipleSelection() ? getSelectedConnectTargets() : [targetId]);
+      if (!sourceIds.length) return;
+      const validSourceIds = sourceIds.filter((id) => {
+        const current = findNode(id)?.node;
+        return current && current.id !== state.id;
+      });
+      if (!validSourceIds.length) return;
+      connectModeSourceIds = new Set(validSourceIds);
+      connectModeNodeId = validSourceIds[validSourceIds.length - 1];
       connectHoverNodeId = null;
-      selectedId = targetId;
+      connectHoverPort = null;
+      connectPointerWorld = null;
+      connectModePortMap = Object.fromEntries(
+        validSourceIds
+          .map((id) => [id, normalizePort(sourcePort)])
+          .filter(([, port]) => Boolean(port))
+      );
+      connectModeType = isChildMode ? "child" : "parent";
+      connectModeAnchorId = isChildMode ? targetId : null;
+      selectedIds = new Set(validSourceIds);
+      selectedId = validSourceIds[validSourceIds.length - 1];
       render();
     }
 
@@ -1812,10 +2368,34 @@
     }
 
     function isConnectTarget(nodeId) {
-      if (!connectModeNodeId || !nodeId || nodeId === connectModeNodeId) return false;
+      if (!hasConnectMode() || !nodeId || connectModeSourceIds.has(nodeId)) return false;
       const targetNode = findNode(nodeId)?.node;
       if (!targetNode || targetNode.detached) return false;
-      return !getAncestorIds(nodeId)?.includes(connectModeNodeId);
+      return ![...connectModeSourceIds].some((sourceId) => getAncestorIds(nodeId)?.includes(sourceId));
+    }
+
+    function applyDeleteToTarget(targetId, mode = "subtree") {
+      if (targetId === state.id) return false;
+      const result = findNode(targetId);
+      if (!result?.parent) return false;
+      const deleteIndex = result.parent.children.findIndex((child) => child.id === targetId);
+      if (deleteIndex === -1) return false;
+
+      if (mode === "single") {
+        const nextChildren = result.node.children.map((child) => ({
+          ...child,
+          detached: true,
+          linkPorts: {
+            from: null,
+            to: null
+          }
+        }));
+        result.parent.children.splice(deleteIndex, 1);
+        state.children.push(...nextChildren);
+      } else {
+        result.parent.children.splice(deleteIndex, 1);
+      }
+      return true;
     }
 
     function deleteNode(targetId, mode = "subtree") {
@@ -1829,26 +2409,39 @@
       if (!shouldDelete) return;
       pushUndoSnapshot();
 
-      const deleteIndex = result.parent.children.findIndex((child) => child.id === targetId);
-      if (deleteIndex === -1) return;
+      if (!applyDeleteToTarget(targetId, mode)) return;
 
-      if (mode === "single") {
-        const nextChildren = result.node.children.map((child) => ({
-          ...child,
-          detached: true
-        }));
-        result.parent.children.splice(deleteIndex, 1);
-        state.children.push(...nextChildren);
-      } else {
-        result.parent.children.splice(deleteIndex, 1);
+      setSingleSelectedId(result.parent.id);
+      render();
+    }
+
+    function deleteSelectedNodes(mode = "subtree") {
+      const targetIds = getSelectedDeleteTargets();
+      if (!targetIds.length) return;
+      if (targetIds.length === 1) {
+        deleteNode(targetIds[0], mode);
+        return;
       }
 
-      selectedId = result.parent.id;
+      const confirmMessage = mode === "single"
+        ? `${targetIds.length}개의 선택된 노드만 삭제할까요?\n각 노드의 하위 노드는 연결선 없는 분리 노드로 남습니다.`
+        : `${targetIds.length}개의 선택된 노드를 삭제할까요?\n각 노드의 하위 노드도 함께 삭제됩니다.`;
+      const shouldDelete = window.confirm(confirmMessage);
+      if (!shouldDelete) return;
+      pushUndoSnapshot();
+
+      targetIds.forEach((targetId) => {
+        applyDeleteToTarget(targetId, mode);
+      });
+
+      setSingleSelectedId(null);
       render();
     }
 
     function commitNodeLabelChanges() {
       if (!selectedId) return;
+      if (hasMultipleSelection()) return;
+      if (nodeLabelInput.disabled) return;
       const result = findNode(selectedId);
       if (!result) return;
       const nextLabel = nodeLabelInput.value.trim() || "이름 없는 노드";
@@ -1901,11 +2494,23 @@
     function showNodeContextMenu(clientX, clientY, nodeId) {
       hideCanvasContextMenu();
       contextMenuNodeId = nodeId;
+      const isMultiContext = hasMultipleSelection() && selectedIds.has(nodeId);
       const current = findNode(nodeId)?.node;
+      nodeContextSummary.hidden = !isMultiContext;
+      nodeContextSummary.textContent = isMultiContext ? `${selectedIds.size}개 선택됨` : "";
+      nodeContextTodayBtn.hidden = isMultiContext;
+      nodeContextAddBtn.hidden = isMultiContext;
+      nodeContextConnectBtn.hidden = false;
+      nodeContextUnlinkBtn.hidden = false;
+      nodeContextDeleteOnlyBtn.hidden = false;
+      nodeContextConnectBtn.textContent = "노드 연결";
+      nodeContextUnlinkBtn.textContent = "노드 연결 해제";
+      nodeContextDeleteOnlyBtn.textContent = "삭제";
+      nodeContextDeleteBtn.textContent = "삭제(하위 노드 포함)";
       nodeContextTodayBtn.textContent = current?.today ? "오늘할일 해제" : "오늘할일";
       nodeContextTodayBtn.disabled = !current;
-      nodeContextConnectBtn.disabled = !current || current.id === state.id;
-      nodeContextUnlinkBtn.disabled = !current || current.id === state.id || current.detached;
+      nodeContextConnectBtn.disabled = isMultiContext ? !canConnectCurrentSelection() : !current || current.id === state.id;
+      nodeContextUnlinkBtn.disabled = isMultiContext ? !canUnlinkCurrentSelection() : !current || !canUnlinkNode(current.id);
       positionContextMenu(nodeContextMenu, clientX, clientY);
     }
 
@@ -1953,7 +2558,7 @@
 
     svg.addEventListener("pointerdown", (event) => {
       hideNodeContextMenu();
-      if (event.target !== nodeLabelInput) {
+      if (!event.shiftKey && event.target !== nodeLabelInput) {
         commitNodeLabelChanges();
       }
       if (event.button === 1) {
@@ -1976,38 +2581,58 @@
 
       const nodeGroup = event.target.closest(".node");
       if (!nodeGroup) {
-        if (connectModeNodeId) {
-          connectModeNodeId = null;
-          connectHoverNodeId = null;
+        if (hasConnectMode()) {
+          resetConnectMode();
           render();
           return;
         }
-        selectedId = null;
+        selectionBoxInfo = {
+          startClientX: event.clientX,
+          startClientY: event.clientY,
+          lastClientX: event.clientX,
+          lastClientY: event.clientY,
+          additive: event.shiftKey,
+          initialSelectedIds: [...selectedIds]
+        };
+        hideSelectionMarquee();
+        return;
+      }
+
+      if (hasConnectMode()) {
+        const targetId = nodeGroup.dataset.id;
+        if (isConnectTarget(targetId)) {
+          if (connectModeSourceIds.size > 1) {
+            reattachSelectedNodes(targetId);
+          } else {
+            reattachNode(connectModeNodeId, targetId);
+          }
+          return;
+        }
+      }
+
+      const clickedNodeId = nodeGroup.dataset.id;
+      if (event.shiftKey) {
+        addSelectedId(clickedNodeId);
         render();
         return;
       }
 
-      if (connectModeNodeId) {
-        const targetId = nodeGroup.dataset.id;
-        if (isConnectTarget(targetId)) {
-          reattachNode(connectModeNodeId, targetId);
-          connectHoverNodeId = null;
-          return;
-        }
+      const shouldDragMultiple = hasMultipleSelection() && selectedIds.has(clickedNodeId);
+      if (!shouldDragMultiple) {
+        setSingleSelectedId(clickedNodeId);
       }
 
-      selectedId = nodeGroup.dataset.id;
       const result = findNode(selectedId);
       if (!result) return;
       const start = toSvgPoint(event.clientX, event.clientY);
-      const subtree = collectSubtree(result.node);
+      const dragNodes = shouldDragMultiple ? collectDragNodesForSelection() : collectSubtree(result.node);
       dragInfo = {
         id: selectedId,
         beforeSnapshot: createHistorySnapshot(),
         moved: false,
         pointerX: (start.x - translate.x) / scale,
         pointerY: (start.y - translate.y) / scale,
-        nodes: subtree.map((node) => ({
+        nodes: dragNodes.map((node) => ({
           id: node.id,
           startX: node.x,
           startY: node.y
@@ -2023,7 +2648,10 @@
         showCanvasContextMenu(event.clientX, event.clientY);
         return;
       }
-      selectedId = nodeGroup.dataset.id;
+      const targetNodeId = nodeGroup.dataset.id;
+      if (!(hasMultipleSelection() && selectedIds.has(targetNodeId))) {
+        setSingleSelectedId(targetNodeId);
+      }
       render();
       showNodeContextMenu(event.clientX, event.clientY, selectedId);
     });
@@ -2036,14 +2664,43 @@
         return;
       }
 
-      if (connectModeNodeId) {
-        const nodeGroup = event.target.closest(".node");
-        const nextHoverNodeId = nodeGroup && isConnectTarget(nodeGroup.dataset.id) ? nodeGroup.dataset.id : null;
-        if (connectHoverNodeId !== nextHoverNodeId) {
+      if (hasConnectMode()) {
+        connectPointerWorld = getWorldPoint(event.clientX, event.clientY);
+        const nextHoverNodeId = findNearbyNodeId(event.clientX, event.clientY, (node) => isConnectTarget(node.id));
+        const nextHoverPort = nextHoverNodeId
+          ? getConnectTargetPort(findNode(nextHoverNodeId)?.node, event.clientX, event.clientY)
+          : null;
+        if (
+          connectHoverNodeId !== nextHoverNodeId
+          || connectHoverPort !== nextHoverPort
+          || !connectPointerWorld
+        ) {
           connectHoverNodeId = nextHoverNodeId;
+          connectHoverPort = nextHoverPort;
+          render();
+        } else {
           render();
         }
         return;
+      }
+
+      if (selectionBoxInfo) {
+        selectionBoxInfo.lastClientX = event.clientX;
+        selectionBoxInfo.lastClientY = event.clientY;
+        updateSelectionMarquee(event.clientX, event.clientY);
+        return;
+      }
+
+      if (!dragInfo) {
+        const nextHoverNodeId = findNearbyNodeId(event.clientX, event.clientY);
+        const nextHoverPort = nextHoverNodeId
+          ? getNearestPortForPoint(findNode(nextHoverNodeId)?.node, getWorldPoint(event.clientX, event.clientY))
+          : null;
+        if (hoverNodeId !== nextHoverNodeId || hoverPort !== nextHoverPort) {
+          hoverNodeId = nextHoverNodeId;
+          hoverPort = nextHoverPort;
+          render();
+        }
       }
 
       if (!dragInfo) return;
@@ -2066,11 +2723,41 @@
     });
 
     window.addEventListener("pointerup", () => {
+      if (selectionBoxInfo) {
+        const movedX = Math.abs(selectionBoxInfo.lastClientX - selectionBoxInfo.startClientX);
+        const movedY = Math.abs(selectionBoxInfo.lastClientY - selectionBoxInfo.startClientY);
+        const hasDragged = movedX > 4 || movedY > 4;
+        if (hasDragged) {
+          applySelectionBoxSelection();
+        } else if (!selectionBoxInfo.additive) {
+          setSingleSelectedId(null);
+        }
+        selectionBoxInfo = null;
+        hideSelectionMarquee();
+        render();
+      }
       if (dragInfo?.moved && dragInfo.beforeSnapshot) {
         pushUndoSnapshot(dragInfo.beforeSnapshot);
       }
       dragInfo = null;
       panInfo = null;
+    });
+
+    svg.addEventListener("pointerleave", () => {
+      if (hasConnectMode()) {
+        if (connectHoverNodeId || connectHoverPort || connectPointerWorld) {
+          connectHoverNodeId = null;
+          connectHoverPort = null;
+          connectPointerWorld = null;
+          render();
+        }
+        return;
+      }
+      if (hoverNodeId) {
+        hoverNodeId = null;
+        hoverPort = null;
+        render();
+      }
     });
 
     window.addEventListener("click", (event) => {
@@ -2121,11 +2808,15 @@
       beginConnectMode(selectedId);
     });
     unlinkBtn.addEventListener("click", () => {
+      if (hasMultipleSelection()) {
+        unlinkSelectedNodes();
+        return;
+      }
       unlinkNode(selectedId);
     });
     document.getElementById("deleteBtn").addEventListener("click", () => {
-      if (!selectedId) return;
-      deleteNode(selectedId);
+      if (!canDeleteCurrentSelection()) return;
+      deleteSelectedNodes();
     });
     addProjectBtn.addEventListener("click", addProject);
     deleteProjectBtn.addEventListener("click", deleteProject);
@@ -2169,9 +2860,8 @@
         hideCanvasContextMenu();
         closeProjectMenu();
         closeInfoWindow();
-        if (connectModeNodeId) {
-          connectModeNodeId = null;
-          connectHoverNodeId = null;
+        if (hasConnectMode()) {
+          resetConnectMode();
           render();
         }
       }
@@ -2181,19 +2871,27 @@
         return;
       }
       event.preventDefault();
-      if (!selectedId) return;
-      deleteNode(selectedId);
+      if (!canDeleteCurrentSelection()) return;
+      deleteSelectedNodes();
     });
 
     nodeContextDeleteBtn.addEventListener("click", () => {
       const targetId = contextMenuNodeId || selectedId;
       hideNodeContextMenu();
+      if (hasMultipleSelection() && selectedIds.has(targetId)) {
+        deleteSelectedNodes("subtree");
+        return;
+      }
       deleteNode(targetId);
     });
 
     nodeContextDeleteOnlyBtn.addEventListener("click", () => {
       const targetId = contextMenuNodeId || selectedId;
       hideNodeContextMenu();
+      if (hasMultipleSelection() && selectedIds.has(targetId)) {
+        deleteSelectedNodes("single");
+        return;
+      }
       deleteNode(targetId, "single");
     });
 
@@ -2201,7 +2899,7 @@
       const targetId = contextMenuNodeId || selectedId;
       hideNodeContextMenu();
       if (!targetId) return;
-      selectedId = targetId;
+      setSingleSelectedId(targetId);
       toggleToday();
     });
 
@@ -2221,8 +2919,11 @@
     nodeContextUnlinkBtn.addEventListener("click", () => {
       const targetId = contextMenuNodeId || selectedId;
       hideNodeContextMenu();
-      connectModeNodeId = null;
-      connectHoverNodeId = null;
+      resetConnectMode();
+      if (hasMultipleSelection() && selectedIds.has(targetId)) {
+        unlinkSelectedNodes();
+        return;
+      }
       unlinkNode(targetId);
     });
 
@@ -2246,7 +2947,7 @@
     todayList.addEventListener("click", (event) => {
       const item = event.target.closest(".today-item");
       if (!item) return;
-      selectedId = item.dataset.id;
+      setSingleSelectedId(item.dataset.id);
       centerOnNode(selectedId);
     });
 
