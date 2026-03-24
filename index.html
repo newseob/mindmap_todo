@@ -53,7 +53,15 @@
     }
 
     .canvas-wrap {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) var(--right-tray-width);
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .canvas-stage {
       position: relative;
+      min-width: 0;
       min-height: 100vh;
       overflow: hidden;
     }
@@ -186,15 +194,107 @@
     }
 
     .right-tray {
-      position: absolute;
-      top: 22px;
-      right: 22px;
-      z-index: 2;
-      width: var(--right-tray-width);
+      position: relative;
+      width: 100%;
+      min-height: 100vh;
+      max-height: 100vh;
       display: flex;
       flex-direction: column;
       gap: 18px;
-      pointer-events: none;
+      overflow-y: auto;
+      padding: 22px 18px;
+      background: rgba(255, 248, 239, 0.88);
+      border-left: 1px solid rgba(124, 106, 88, 0.16);
+      box-shadow: inset 18px 0 30px rgba(55, 37, 24, 0.04);
+    }
+
+    .info-panel {
+      width: 100%;
+      padding: 14px 14px 12px;
+      flex: 0 0 auto;
+    }
+
+    .info-panel h2,
+    .info-panel h3 {
+      margin: 0;
+    }
+
+    .info-panel h2 {
+      font-size: 1.02rem;
+    }
+
+    .info-panel .today-panel-header {
+      margin-bottom: 8px;
+    }
+
+    .info-panel p {
+      margin: 0 0 12px;
+      font-size: 0.88rem;
+      line-height: 1.6;
+      color: var(--text);
+    }
+
+    .info-panel button {
+      width: 100%;
+    }
+
+    .ad-panel {
+      margin-top: auto;
+    }
+
+    .info-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(42, 31, 24, 0.34);
+      backdrop-filter: blur(8px);
+    }
+
+    .info-modal[hidden] {
+      display: none;
+    }
+
+    .info-modal-window {
+      width: min(920px, calc(100vw - 48px));
+      height: min(760px, calc(100vh - 48px));
+      display: flex;
+      flex-direction: column;
+      border-radius: 24px;
+      overflow: hidden;
+      background: rgba(255, 250, 242, 0.98);
+      border: 1px solid rgba(124, 106, 88, 0.16);
+      box-shadow: 0 28px 60px rgba(28, 20, 15, 0.26);
+    }
+
+    .info-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px;
+      background: rgba(247, 239, 228, 0.96);
+      border-bottom: 1px solid rgba(124, 106, 88, 0.14);
+    }
+
+    .info-modal-header h2 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .info-modal-close {
+      min-width: 0;
+      padding: 8px 12px;
+    }
+
+    .info-modal-frame {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #fffdf9;
     }
 
     .right-tray > * {
@@ -629,6 +729,14 @@
     }
 
     @media (max-width: 900px) {
+      .canvas-wrap {
+        grid-template-columns: 1fr;
+      }
+
+      .canvas-stage {
+        min-height: 100vh;
+      }
+
       .bottom-bar {
         left: 16px;
         right: 16px;
@@ -660,11 +768,12 @@
       }
 
       .right-tray {
-        top: auto;
-        left: 16px;
-        right: 16px;
-        bottom: 184px;
-        width: auto;
+        min-height: 0;
+        max-height: 42vh;
+        padding: 16px;
+        border-left: none;
+        border-top: 1px solid rgba(124, 106, 88, 0.16);
+        box-shadow: inset 0 12px 24px rgba(55, 37, 24, 0.04);
       }
 
       .today-panel {
@@ -684,30 +793,41 @@
       .project-trigger {
         min-width: 0;
       }
+
+      .info-modal {
+        padding: 12px;
+      }
+
+      .info-modal-window {
+        width: calc(100vw - 24px);
+        height: calc(100vh - 24px);
+      }
     }
   </style>
 </head>
 <body>
   <main class="canvas-wrap">
-    <div id="connectModeBanner" class="connect-mode-banner" hidden>노드 연결 모드입니다. 연결할 부모 노드를 선택하거나 빈 공간 클릭, Esc로 취소하세요.</div>
+    <section class="canvas-stage">
+      <div id="connectModeBanner" class="connect-mode-banner" hidden>노드 연결 모드입니다. 연결할 부모 노드를 선택하거나 빈 공간 클릭, Esc로 취소하세요.</div>
 
-    <svg id="mindmap" viewBox="0 0 1400 900" aria-label="mind map canvas">
-      <g id="viewport">
-        <g id="links"></g>
-        <g id="nodes"></g>
-      </g>
-    </svg>
+      <svg id="mindmap" viewBox="0 0 1400 900" aria-label="mind map canvas">
+        <g id="viewport">
+          <g id="links"></g>
+          <g id="nodes"></g>
+        </g>
+      </svg>
 
-    <div class="bottom-bar">
-      <button id="todayBtn" class="secondary" hidden>오늘할일</button>
-      <span class="label">선택 노드</span>
-      <input id="nodeLabel" type="text" placeholder="노드 제목">
-      <button id="renameBtn" hidden>이름 변경</button>
-      <button id="addChildBtn" class="secondary" hidden>노드 추가</button>
-      <button id="deleteBtn" class="secondary">삭제</button>
-      <button id="connectBtn" class="secondary" hidden>노드 연결</button>
-      <button id="unlinkBtn" class="secondary" hidden>연결 해제</button>
-    </div>
+      <div class="bottom-bar">
+        <button id="todayBtn" class="secondary" hidden>오늘할일</button>
+        <span class="label">선택 노드</span>
+        <input id="nodeLabel" type="text" placeholder="노드 제목">
+        <button id="renameBtn" hidden>이름 변경</button>
+        <button id="addChildBtn" class="secondary" hidden>노드 추가</button>
+        <button id="deleteBtn" class="secondary">삭제</button>
+        <button id="connectBtn" class="secondary" hidden>노드 연결</button>
+        <button id="unlinkBtn" class="secondary" hidden>연결 해제</button>
+      </div>
+    </section>
     <aside class="right-tray" aria-label="우측 트레이">
       <aside class="project-toolbar side-panel" aria-live="polite">
         <div class="today-panel-header">
@@ -741,6 +861,11 @@
           <textarea id="memoInput" class="memo-input" placeholder="오늘할일과 함께 참고할 메모를 적어두세요."></textarea>
         </div>
       </aside>
+      <aside id="infoPanel" class="info-panel side-panel collapsible-panel" aria-label="앱 안내">
+        <h2>앱 안내</h2>
+        <p>마인드맵 할일 앱의 용도, 주요 기능, 이용 방법과 운영 안내를 간략히 확인한 뒤 자세한 소개 창을 열 수 있습니다.</p>
+        <button id="openInfoWindowBtn" class="secondary" type="button">자세히 알아보기</button>
+      </aside>
       <aside id="adPanel" class="ad-panel side-panel" aria-label="광고 영역">
         <h2>광고</h2>
         <div class="ad-slot-box">
@@ -757,6 +882,15 @@
         </script>
       </aside>
     </aside>
+    <div id="infoModal" class="info-modal" hidden>
+      <div class="info-modal-window" role="dialog" aria-modal="true" aria-labelledby="infoModalTitle">
+        <div class="info-modal-header">
+          <h2 id="infoModalTitle">앱 안내</h2>
+          <button id="closeInfoWindowBtn" class="secondary info-modal-close" type="button">닫기</button>
+        </div>
+        <iframe id="infoModalFrame" class="info-modal-frame" src="./app-guide.html" title="앱 안내 페이지"></iframe>
+      </div>
+    </div>
     <div id="nodeContextMenu" class="context-menu" hidden>
       <button id="nodeContextTodayBtn" type="button">오늘할일</button>
       <button id="nodeContextAddBtn" type="button">노드 추가</button>
@@ -831,6 +965,9 @@
     const memoPanel = document.getElementById("memoPanel");
     const memoPanelToggle = document.getElementById("memoPanelToggle");
     const memoInput = document.getElementById("memoInput");
+    const openInfoWindowBtn = document.getElementById("openInfoWindowBtn");
+    const infoModal = document.getElementById("infoModal");
+    const closeInfoWindowBtn = document.getElementById("closeInfoWindowBtn");
     const nodeContextMenu = document.getElementById("nodeContextMenu");
     const nodeContextTodayBtn = document.getElementById("nodeContextTodayBtn");
     const nodeContextAddBtn = document.getElementById("nodeContextAddBtn");
@@ -1555,6 +1692,14 @@
       render();
     }
 
+    function openInfoWindow() {
+      infoModal.hidden = false;
+    }
+
+    function closeInfoWindow() {
+      infoModal.hidden = true;
+    }
+
     function addChild(parentId) {
       const result = findNode(parentId);
       if (!result) return null;
@@ -1913,6 +2058,9 @@
       if (isProjectMenuOpen && !event.target.closest(".project-toolbar")) {
         closeProjectMenu();
       }
+      if (!infoModal.hidden && event.target === infoModal) {
+        closeInfoWindow();
+      }
     });
 
     svg.addEventListener("mousedown", (event) => {
@@ -1938,6 +2086,8 @@
     todayBtn.addEventListener("click", toggleToday);
     todayPanelToggle.addEventListener("click", toggleTodayPanel);
     memoPanelToggle.addEventListener("click", toggleMemoPanel);
+    openInfoWindowBtn.addEventListener("click", openInfoWindow);
+    closeInfoWindowBtn.addEventListener("click", closeInfoWindow);
     document.getElementById("addChildBtn").addEventListener("click", () => {
       if (!selectedId) return;
       addChild(selectedId);
@@ -1993,6 +2143,7 @@
         hideNodeContextMenu();
         hideCanvasContextMenu();
         closeProjectMenu();
+        closeInfoWindow();
         if (connectModeNodeId) {
           connectModeNodeId = null;
           connectHoverNodeId = null;
