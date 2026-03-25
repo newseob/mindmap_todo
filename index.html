@@ -1122,6 +1122,43 @@
       color: #fffaf4;
     }
 
+    .canvas-wrap.mini-mode {
+      grid-template-columns: 1fr !important;
+    }
+
+    .canvas-wrap.mini-mode .canvas-stage,
+    .canvas-wrap.mini-mode .tray-controls,
+    .canvas-wrap.mini-mode .project-toolbar,
+    .canvas-wrap.mini-mode .memo-panel,
+    .canvas-wrap.mini-mode .tray-bottom-group {
+      display: none;
+    }
+
+    .canvas-wrap.mini-mode .right-tray {
+      order: 1;
+      min-height: 100vh;
+      max-height: 100vh;
+      padding: 14px;
+      border: none;
+      box-shadow: none;
+      background: transparent;
+    }
+
+    .canvas-wrap.mini-mode .today-panel {
+      min-width: 0;
+      min-height: calc(100vh - 28px);
+      max-height: none;
+      margin: 0;
+    }
+
+    .canvas-wrap.mini-mode .today-panel .today-panel-header {
+      margin-bottom: 14px;
+    }
+
+    .canvas-wrap.mini-mode #todayPanelToggle {
+      display: none;
+    }
+
     @media (max-width: 900px) {
       .canvas-wrap {
         grid-template-columns: 1fr;
@@ -1366,6 +1403,8 @@
     const PAN_SENSITIVITY = 1.35;
     const STORAGE_VERSION = 2;
     const HISTORY_LIMIT = 100;
+    const MINI_MODE_MAX_WIDTH = 560;
+    const MINI_MODE_MAX_HEIGHT = 520;
     const NODE_WIDTH = 160;
     const NODE_HEIGHT = 60;
     const ROOT_RADIUS = 42;
@@ -1481,6 +1520,7 @@
     let hoverPort = null;
     let undoStack = [];
     let memoHistorySnapshot = null;
+    let isMiniMode = window.innerWidth <= MINI_MODE_MAX_WIDTH || window.innerHeight <= MINI_MODE_MAX_HEIGHT;
 
     function createHistorySnapshot() {
       return {
@@ -2515,8 +2555,10 @@
     }
 
     function syncTodayPanelUI() {
-      const isCollapsed = Boolean(appState.todayPanelCollapsed);
+      const isCollapsed = isMiniMode ? false : Boolean(appState.todayPanelCollapsed);
       todayPanel.classList.toggle("collapsed", isCollapsed);
+      todayPanelToggle.hidden = isMiniMode;
+      todayPanelToggle.disabled = isMiniMode;
       todayPanelToggle.setAttribute("aria-expanded", String(!isCollapsed));
       todayPanelToggle.setAttribute("aria-label", isCollapsed ? "오늘할일 펼치기" : "오늘할일 숨기기");
     }
@@ -2548,6 +2590,7 @@
       const wasCollapsed = canvasWrap.classList.contains("tray-collapsed");
       const isCollapsed = Boolean(appState.trayCollapsed);
       const isLeft = appState.traySide === "left";
+      canvasWrap.classList.toggle("mini-mode", isMiniMode);
       canvasWrap.classList.toggle("tray-collapsed", isCollapsed);
       canvasWrap.classList.toggle("tray-left", isLeft);
       trayToggleBtn.setAttribute("aria-expanded", String(!isCollapsed));
@@ -2609,6 +2652,13 @@
     function toggleThemeMode() {
       pushUndoSnapshot();
       appState.themeMode = appState.themeMode === "dark" ? "light" : "dark";
+      render();
+    }
+
+    function syncMiniModeFromViewport() {
+      const nextIsMiniMode = window.innerWidth <= MINI_MODE_MAX_WIDTH || window.innerHeight <= MINI_MODE_MAX_HEIGHT;
+      if (nextIsMiniMode === isMiniMode) return;
+      isMiniMode = nextIsMiniMode;
       render();
     }
 
@@ -3188,6 +3238,8 @@
       dragInfo = null;
       panInfo = null;
     });
+
+    window.addEventListener("resize", syncMiniModeFromViewport);
 
     svg.addEventListener("pointerleave", () => {
       if (hasConnectMode()) {
