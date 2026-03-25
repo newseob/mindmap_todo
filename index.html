@@ -28,11 +28,11 @@
       --surface-strong: rgba(255, 250, 242, 0.97);
       --surface-soft: rgba(255, 255, 255, 0.82);
       --surface-hover: rgba(248, 232, 214, 0.98);
-      --tray-surface: rgba(255, 248, 239, 0.88);
+      --tray-surface: transparent;
       --panel-border: rgba(124, 106, 88, 0.16);
       --panel-border-strong: rgba(124, 106, 88, 0.24);
-      --tray-shadow: inset 18px 0 30px rgba(55, 37, 24, 0.04);
-      --tray-shadow-left: inset -18px 0 30px rgba(55, 37, 24, 0.04);
+      --tray-shadow: none;
+      --tray-shadow-left: none;
       --field-bg: rgba(255, 255, 255, 0.92);
       --field-border: rgba(124, 106, 88, 0.22);
       --focus-ring: rgba(208, 111, 69, 0.2);
@@ -72,11 +72,11 @@
       --surface-strong: rgba(41, 47, 55, 0.97);
       --surface-soft: rgba(28, 32, 38, 0.88);
       --surface-hover: rgba(54, 61, 72, 0.98);
-      --tray-surface: rgba(24, 28, 34, 0.92);
+      --tray-surface: transparent;
       --panel-border: rgba(158, 143, 126, 0.22);
       --panel-border-strong: rgba(158, 143, 126, 0.32);
-      --tray-shadow: inset 18px 0 30px rgba(0, 0, 0, 0.18);
-      --tray-shadow-left: inset -18px 0 30px rgba(0, 0, 0, 0.18);
+      --tray-shadow: none;
+      --tray-shadow-left: none;
       --field-bg: rgba(20, 24, 29, 0.9);
       --field-border: rgba(158, 143, 126, 0.28);
       --focus-ring: rgba(224, 143, 99, 0.24);
@@ -133,32 +133,18 @@
     }
 
     .canvas-wrap {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) var(--right-tray-width);
+      display: block;
       min-height: 100vh;
       overflow: hidden;
       position: relative;
-      transition: grid-template-columns 180ms ease;
-    }
-
-    .canvas-wrap.tray-collapsed {
-      grid-template-columns: minmax(0, 1fr) 0;
-    }
-
-    .canvas-wrap.tray-left {
-      grid-template-columns: var(--right-tray-width) minmax(0, 1fr);
-    }
-
-    .canvas-wrap.tray-left.tray-collapsed {
-      grid-template-columns: 0 minmax(0, 1fr);
+      transition: none;
     }
 
     .canvas-stage {
       position: relative;
-      min-width: 0;
+      width: 100%;
       min-height: 100vh;
       overflow: hidden;
-      order: 1;
     }
 
     .project-toolbar {
@@ -305,8 +291,10 @@
     }
 
     .right-tray {
-      position: relative;
-      width: 100%;
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: var(--right-tray-width);
       min-height: 100vh;
       max-height: 100vh;
       display: flex;
@@ -316,21 +304,18 @@
       overflow-x: auto;
       padding: 22px 18px;
       background: var(--tray-surface);
-      border-left: 1px solid var(--panel-border);
+      border-left: none;
       box-shadow: var(--tray-shadow);
       transition: opacity 180ms ease, transform 180ms ease, padding 180ms ease;
-      order: 2;
+      z-index: 3;
     }
 
     .canvas-wrap.tray-left .right-tray {
-      order: 1;
+      left: 0;
+      right: auto;
       border-left: none;
-      border-right: 1px solid var(--panel-border);
+      border-right: none;
       box-shadow: var(--tray-shadow-left);
-    }
-
-    .canvas-wrap.tray-left .canvas-stage {
-      order: 2;
     }
 
     .canvas-wrap.tray-collapsed .right-tray {
@@ -520,11 +505,89 @@
       box-shadow: inset -4px 0 0 0 currentColor;
     }
 
+    .mini-mode-toggle::before {
+      content: "";
+      width: 14px;
+      height: 12px;
+      margin-left: 0;
+      border-top: none;
+      border-right: none;
+      border: 1.8px solid currentColor;
+      border-radius: 3px;
+      background:
+        linear-gradient(45deg, transparent 44%, currentColor 44%, currentColor 58%, transparent 58%) 2px 5px / 4px 5px no-repeat,
+        linear-gradient(-45deg, transparent 50%, currentColor 50%, currentColor 62%, transparent 62%) 5px 3px / 7px 7px no-repeat;
+      transform: none;
+      box-sizing: border-box;
+    }
+
+    .canvas-wrap.mini-mode .mini-mode-toggle::before {
+      width: 13px;
+      height: 13px;
+      border: 1.8px solid currentColor;
+      border-radius: 3px;
+      background:
+        linear-gradient(currentColor, currentColor) 7px 5px / 4px 1.8px no-repeat,
+        linear-gradient(45deg, transparent 47%, currentColor 47%, currentColor 58%, transparent 58%) 4px 4px / 5px 5px no-repeat,
+        linear-gradient(-45deg, transparent 47%, currentColor 47%, currentColor 58%, transparent 58%) 1px 4px / 5px 5px no-repeat;
+    }
+
     .tray-bottom-group {
       margin-top: auto;
       display: flex;
       flex-direction: column;
       gap: 18px;
+    }
+
+    .tray-bottom-group[hidden] {
+      display: none;
+    }
+
+    .canvas-wrap.mini-mode .canvas-stage,
+    .canvas-wrap.mini-mode .project-toolbar,
+    .canvas-wrap.mini-mode .memo-panel,
+    .canvas-wrap.mini-mode .tray-bottom-group,
+    .canvas-wrap.mini-mode #trayToggleBtn,
+    .canvas-wrap.mini-mode #traySideToggleBtn,
+    .canvas-wrap.mini-mode #themeToggleBtn {
+      display: none;
+    }
+
+    .canvas-wrap.mini-mode .tray-controls {
+      top: 14px;
+      right: 14px;
+      left: auto;
+    }
+
+    .canvas-wrap.tray-left.mini-mode .tray-controls {
+      left: 14px;
+      right: auto;
+    }
+
+    .canvas-wrap.mini-mode .right-tray {
+      inset: 0;
+      width: auto;
+      min-height: 100vh;
+      max-height: 100vh;
+      padding: 14px;
+      background: transparent;
+      box-shadow: none;
+      z-index: 2;
+    }
+
+    .canvas-wrap.mini-mode .today-panel {
+      min-width: 0;
+      min-height: calc(100vh - 28px);
+      max-height: none;
+      margin: 0;
+    }
+
+    .canvas-wrap.mini-mode .today-panel .today-panel-header {
+      margin-bottom: 14px;
+    }
+
+    .canvas-wrap.mini-mode #todayPanelToggle {
+      display: none;
     }
 
     .info-panel {
@@ -1019,10 +1082,19 @@
     }
 
     .today-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
       padding: 10px 12px;
       border-radius: 14px;
       background: var(--surface-soft);
       border: 1px solid var(--panel-border);
+    }
+
+    .today-item-main {
+      min-width: 0;
+      flex: 1;
     }
 
     .today-item .path {
@@ -1038,6 +1110,38 @@
       font-weight: 700;
       color: var(--text);
       line-height: 1.4;
+    }
+
+    .today-check-btn {
+      flex: 0 0 auto;
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      padding: 0;
+      border-radius: 9px;
+      background: transparent;
+      color: var(--accent-strong);
+      border: 1.5px solid var(--accent-strong);
+      box-shadow: none;
+      position: relative;
+    }
+
+    .today-check-btn::before {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 9px;
+      height: 5px;
+      border-left: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: translate(-50%, -58%) rotate(-45deg);
+    }
+
+    .today-check-btn:hover {
+      background: var(--accent-strong);
+      color: #fffaf4;
+      transform: none;
     }
 
     .context-menu {
@@ -1122,57 +1226,7 @@
       color: #fffaf4;
     }
 
-    .canvas-wrap.mini-mode {
-      grid-template-columns: 1fr !important;
-    }
-
-    .canvas-wrap.mini-mode .canvas-stage,
-    .canvas-wrap.mini-mode .tray-controls,
-    .canvas-wrap.mini-mode .project-toolbar,
-    .canvas-wrap.mini-mode .memo-panel,
-    .canvas-wrap.mini-mode .tray-bottom-group {
-      display: none;
-    }
-
-    .canvas-wrap.mini-mode .right-tray {
-      order: 1;
-      min-height: 100vh;
-      max-height: 100vh;
-      padding: 14px;
-      border: none;
-      box-shadow: none;
-      background: transparent;
-    }
-
-    .canvas-wrap.mini-mode .today-panel {
-      min-width: 0;
-      min-height: calc(100vh - 28px);
-      max-height: none;
-      margin: 0;
-    }
-
-    .canvas-wrap.mini-mode .today-panel .today-panel-header {
-      margin-bottom: 14px;
-    }
-
-    .canvas-wrap.mini-mode #todayPanelToggle {
-      display: none;
-    }
-
     @media (max-width: 900px) {
-      .canvas-wrap {
-        grid-template-columns: 1fr;
-      }
-
-      .canvas-wrap.tray-collapsed {
-        grid-template-columns: 1fr;
-      }
-
-      .canvas-wrap.tray-left,
-      .canvas-wrap.tray-left.tray-collapsed {
-        grid-template-columns: 1fr;
-      }
-
       .canvas-stage {
         min-height: 100vh;
       }
@@ -1218,30 +1272,14 @@
         max-height: 100vh;
         padding: 16px;
         border-left: none;
-        border-top: 1px solid rgba(124, 106, 88, 0.16);
-        box-shadow: inset 0 12px 24px rgba(55, 37, 24, 0.04);
+        border-top: none;
+        box-shadow: none;
       }
 
       .canvas-wrap.tray-left .right-tray {
         border-right: none;
-        border-top: 1px solid rgba(124, 106, 88, 0.16);
-        box-shadow: inset 0 12px 24px rgba(55, 37, 24, 0.04);
-      }
-
-      .tray-controls {
-        top: 16px;
-        right: 4px;
-        bottom: auto;
-        left: auto;
-      }
-
-      .canvas-wrap.tray-left .tray-controls,
-      .canvas-wrap.tray-collapsed .tray-controls,
-      .canvas-wrap.tray-left.tray-collapsed .tray-controls {
-        right: 4px;
-        left: auto;
-        top: 16px;
-        bottom: auto;
+        border-top: none;
+        box-shadow: none;
       }
 
       .canvas-wrap.tray-collapsed .right-tray {
@@ -1315,6 +1353,7 @@
       <button id="trayToggleBtn" class="tray-toggle secondary" type="button" aria-expanded="true" aria-controls="rightTray" aria-label="우측 트레이 숨기기"></button>
       <button id="traySideToggleBtn" class="tray-toggle tray-side-toggle secondary" type="button" aria-label="트레이를 왼쪽으로 이동"></button>
       <button id="themeToggleBtn" class="tray-toggle theme-toggle secondary" type="button" aria-label="다크 모드로 전환"></button>
+      <button id="miniModeToggleBtn" class="tray-toggle mini-mode-toggle secondary" type="button" aria-label="미니 모드 켜기"></button>
     </div>
     <aside id="rightTray" class="right-tray" aria-label="우측 트레이">
       <aside class="project-toolbar side-panel" aria-live="polite">
@@ -1349,21 +1388,12 @@
           <textarea id="memoInput" class="memo-input" placeholder="오늘할일과 함께 참고할 메모를 적어두세요."></textarea>
         </div>
       </aside>
-      <div class="tray-bottom-group">
+      <div class="tray-bottom-group" hidden>
         <aside id="adPanel" class="ad-panel side-panel" aria-label="광고 영역">
           <h2>광고</h2>
           <div class="ad-slot-box">
-            <!-- 웹앱 광고 -->
-            <ins class="adsbygoogle"
-                 style="display:block"
-                 data-ad-client="ca-pub-2116213869162668"
-                 data-ad-slot="4304571154"
-                 data-ad-format="auto"
-                 data-full-width-responsive="true"></ins>
+            광고 영역이 비활성화되었습니다.
           </div>
-          <script>
-            (adsbygoogle = window.adsbygoogle || []).push({});
-          </script>
         </aside>
         <aside id="infoPanel" class="info-panel side-panel collapsible-panel" aria-label="앱 안내">
           <h2>앱 안내</h2>
@@ -1376,7 +1406,7 @@
         </aside>
       </div>
     </aside>
-    <div id="infoModal" class="info-modal" hidden>
+    <div id="infoModal" class="info-modal" hidden inert>
       <div class="info-modal-window" role="dialog" aria-modal="true" aria-labelledby="infoModalTitle">
         <div class="info-modal-header">
           <h2 id="infoModalTitle">앱 안내</h2>
@@ -1403,8 +1433,6 @@
     const PAN_SENSITIVITY = 1.35;
     const STORAGE_VERSION = 2;
     const HISTORY_LIMIT = 100;
-    const MINI_MODE_MAX_WIDTH = 560;
-    const MINI_MODE_MAX_HEIGHT = 520;
     const NODE_WIDTH = 160;
     const NODE_HEIGHT = 60;
     const ROOT_RADIUS = 42;
@@ -1448,7 +1476,49 @@
       x: 700,
       y: 420,
       today: false,
-      children: []
+      children: [
+        {
+          id: crypto.randomUUID(),
+          label: "기획 정리",
+          x: 940,
+          y: 300,
+          today: true,
+          children: [
+            {
+              id: crypto.randomUUID(),
+              label: "핵심 목표",
+              x: 1160,
+              y: 250,
+              today: false,
+              children: []
+            },
+            {
+              id: crypto.randomUUID(),
+              label: "우선순위",
+              x: 1160,
+              y: 350,
+              today: false,
+              children: []
+            }
+          ]
+        },
+        {
+          id: crypto.randomUUID(),
+          label: "작업 목록",
+          x: 940,
+          y: 420,
+          today: false,
+          children: []
+        },
+        {
+          id: crypto.randomUUID(),
+          label: "메모 아이디어",
+          x: 940,
+          y: 540,
+          today: false,
+          children: []
+        }
+      ]
     };
 
     const canvasStage = document.querySelector(".canvas-stage");
@@ -1490,9 +1560,11 @@
     const deleteProjectBtn = document.getElementById("deleteProjectBtn");
     const canvasWrap = document.querySelector(".canvas-wrap");
     const rightTray = document.getElementById("rightTray");
+    const trayBottomGroup = document.querySelector(".tray-bottom-group");
     const trayToggleBtn = document.getElementById("trayToggleBtn");
     const traySideToggleBtn = document.getElementById("traySideToggleBtn");
     const themeToggleBtn = document.getElementById("themeToggleBtn");
+    const miniModeToggleBtn = document.getElementById("miniModeToggleBtn");
     const themeColorMeta = document.querySelector('meta[name="theme-color"]');
 
     let appState = loadState();
@@ -1520,7 +1592,6 @@
     let hoverPort = null;
     let undoStack = [];
     let memoHistorySnapshot = null;
-    let isMiniMode = window.innerWidth <= MINI_MODE_MAX_WIDTH || window.innerHeight <= MINI_MODE_MAX_HEIGHT;
 
     function createHistorySnapshot() {
       return {
@@ -1678,6 +1749,7 @@
         trayCollapsed: Boolean(appState.trayCollapsed),
         traySide: appState.traySide === "left" ? "left" : "right",
         themeMode: appState.themeMode === "dark" ? "dark" : "light",
+        miniMode: Boolean(appState.miniMode),
         todayPanelCollapsed: Boolean(appState.todayPanelCollapsed),
         memoPanelCollapsed: Boolean(appState.memoPanelCollapsed),
         memo: typeof appState.memo === "string" ? appState.memo : "",
@@ -1724,6 +1796,7 @@
         trayCollapsed: false,
         traySide: "right",
         themeMode: "light",
+        miniMode: false,
         todayPanelCollapsed: false,
         memoPanelCollapsed: false,
         memo: "",
@@ -1742,6 +1815,7 @@
         trayCollapsed: false,
         traySide: "right",
         themeMode: "light",
+        miniMode: false,
         todayPanelCollapsed: false,
         memoPanelCollapsed: false,
         memo: "",
@@ -1771,6 +1845,7 @@
         trayCollapsed: Boolean(rawState.trayCollapsed),
         traySide: rawState.traySide === "left" ? "left" : "right",
         themeMode: rawState.themeMode === "dark" ? "dark" : "light",
+        miniMode: Boolean(rawState.miniMode),
         todayPanelCollapsed: Boolean(rawState.todayPanelCollapsed),
         memoPanelCollapsed: Boolean(rawState.memoPanelCollapsed),
         memo: typeof rawState.memo === "string" ? rawState.memo : "",
@@ -2548,17 +2623,20 @@
 
       todayList.innerHTML = items.map((item) => `
         <article class="today-item" data-id="${item.id}">
-          <p class="path">${item.path || "최상위"}</p>
-          <p class="task">${item.label}</p>
+          <div class="today-item-main">
+            <p class="path">${item.path || "최상위"}</p>
+            <p class="task">${item.label}</p>
+          </div>
+          <button class="today-check-btn" type="button" data-today-toggle="${item.id}" aria-pressed="true" aria-label="오늘할일 선택 해제"></button>
         </article>
       `).join("");
     }
 
     function syncTodayPanelUI() {
-      const isCollapsed = isMiniMode ? false : Boolean(appState.todayPanelCollapsed);
+      const isCollapsed = appState.miniMode ? false : Boolean(appState.todayPanelCollapsed);
       todayPanel.classList.toggle("collapsed", isCollapsed);
-      todayPanelToggle.hidden = isMiniMode;
-      todayPanelToggle.disabled = isMiniMode;
+      todayPanelToggle.hidden = Boolean(appState.miniMode);
+      todayPanelToggle.disabled = Boolean(appState.miniMode);
       todayPanelToggle.setAttribute("aria-expanded", String(!isCollapsed));
       todayPanelToggle.setAttribute("aria-label", isCollapsed ? "오늘할일 펼치기" : "오늘할일 숨기기");
     }
@@ -2590,12 +2668,15 @@
       const wasCollapsed = canvasWrap.classList.contains("tray-collapsed");
       const isCollapsed = Boolean(appState.trayCollapsed);
       const isLeft = appState.traySide === "left";
+      const isMiniMode = Boolean(appState.miniMode);
       canvasWrap.classList.toggle("mini-mode", isMiniMode);
       canvasWrap.classList.toggle("tray-collapsed", isCollapsed);
       canvasWrap.classList.toggle("tray-left", isLeft);
       trayToggleBtn.setAttribute("aria-expanded", String(!isCollapsed));
       trayToggleBtn.setAttribute("aria-label", isCollapsed ? "트레이 열기" : "트레이 숨기기");
       traySideToggleBtn.setAttribute("aria-label", isLeft ? "트레이를 오른쪽으로 이동" : "트레이를 왼쪽으로 이동");
+      miniModeToggleBtn.setAttribute("aria-label", isMiniMode ? "미니 모드 끄기" : "미니 모드 켜기");
+      miniModeToggleBtn.setAttribute("title", isMiniMode ? "미니 모드 끄기" : "미니 모드 켜기");
       rightTray.setAttribute("aria-hidden", String(isCollapsed));
       rightTray.setAttribute("aria-label", isLeft ? "좌측 트레이" : "우측 트레이");
 
@@ -2655,19 +2736,21 @@
       render();
     }
 
-    function syncMiniModeFromViewport() {
-      const nextIsMiniMode = window.innerWidth <= MINI_MODE_MAX_WIDTH || window.innerHeight <= MINI_MODE_MAX_HEIGHT;
-      if (nextIsMiniMode === isMiniMode) return;
-      isMiniMode = nextIsMiniMode;
+    function toggleMiniMode() {
+      pushUndoSnapshot();
+      appState.miniMode = !appState.miniMode;
       render();
     }
 
     function openInfoWindow() {
+      if (trayBottomGroup?.hidden) return;
       infoModal.hidden = false;
+      infoModal.inert = false;
     }
 
     function closeInfoWindow() {
       infoModal.hidden = true;
+      infoModal.inert = true;
     }
 
     function addChild(parentId) {
@@ -2956,13 +3039,18 @@
       commitNodeLabelChanges();
     }
 
-    function toggleToday() {
-      if (!selectedId) return;
-      const result = findNode(selectedId);
+    function toggleTodayForNode(targetId) {
+      if (!targetId) return;
+      const result = findNode(targetId);
       if (!result) return;
       pushUndoSnapshot();
       result.node.today = !result.node.today;
       render();
+    }
+
+    function toggleToday() {
+      if (!selectedId) return;
+      toggleTodayForNode(selectedId);
     }
 
     function hideNodeContextMenu() {
@@ -3239,8 +3327,6 @@
       panInfo = null;
     });
 
-    window.addEventListener("resize", syncMiniModeFromViewport);
-
     svg.addEventListener("pointerleave", () => {
       if (hasConnectMode()) {
         if (connectHoverNodeId || connectHoverPort || connectPointerWorld) {
@@ -3299,6 +3385,7 @@
     trayToggleBtn.addEventListener("click", toggleTray);
     traySideToggleBtn.addEventListener("click", toggleTraySide);
     themeToggleBtn.addEventListener("click", toggleThemeMode);
+    miniModeToggleBtn.addEventListener("click", toggleMiniMode);
     openInfoWindowBtn.addEventListener("click", openInfoWindow);
     closeInfoWindowBtn.addEventListener("click", closeInfoWindow);
     document.getElementById("addChildBtn").addEventListener("click", () => {
@@ -3446,6 +3533,12 @@
     });
 
     todayList.addEventListener("click", (event) => {
+      const toggleButton = event.target.closest("[data-today-toggle]");
+      if (toggleButton) {
+        event.stopPropagation();
+        toggleTodayForNode(toggleButton.dataset.todayToggle);
+        return;
+      }
       const item = event.target.closest(".today-item");
       if (!item) return;
       setSingleSelectedId(item.dataset.id);
