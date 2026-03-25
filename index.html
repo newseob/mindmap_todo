@@ -800,7 +800,6 @@
     .node text {
       pointer-events: none;
       fill: #fffdf8;
-      font-size: 15px;
       font-weight: 700;
       text-anchor: middle;
       dominant-baseline: middle;
@@ -887,7 +886,6 @@
     .preview-node text {
       pointer-events: none;
       fill: var(--muted);
-      font-size: 14px;
       font-weight: 700;
       text-anchor: middle;
       dominant-baseline: middle;
@@ -1114,11 +1112,11 @@
 
     .today-check-btn {
       flex: 0 0 auto;
-      width: 28px;
-      height: 28px;
-      min-width: 28px;
+      width: 24px;
+      height: 24px;
+      min-width: 24px;
       padding: 0;
-      border-radius: 9px;
+      border-radius: 8px;
       background: transparent;
       color: var(--accent-strong);
       border: 1.5px solid var(--accent-strong);
@@ -1131,10 +1129,10 @@
       position: absolute;
       top: 50%;
       left: 50%;
-      width: 9px;
-      height: 5px;
-      border-left: 2px solid currentColor;
-      border-bottom: 2px solid currentColor;
+      width: 8px;
+      height: 4px;
+      border-left: 1.8px solid currentColor;
+      border-bottom: 1.8px solid currentColor;
       transform: translate(-50%, -58%) rotate(-45deg);
     }
 
@@ -1468,6 +1466,18 @@
       "#cdc0de",
       "#dabfd0",
       "#c9c9c9"
+    ];
+    const DARK_FADED_DEPTH_COLORS = [
+      "#704b4b",
+      "#735446",
+      "#726641",
+      "#53664b",
+      "#45635f",
+      "#4b6073",
+      "#4d5074",
+      "#5f4f78",
+      "#704f67",
+      "#575757"
     ];
 
         const sampleData = {
@@ -2234,8 +2244,8 @@
       return Math.max(MIN_NODE_SCALE, 1 - depth * DEPTH_SCALE_STEP);
     }
 
-    function getFontSize(scale) {
-      return Math.max(MIN_FONT_SIZE, BASE_FONT_SIZE * scale);
+    function getFontSize(nodeScale) {
+      return Math.max(MIN_FONT_SIZE, BASE_FONT_SIZE * nodeScale);
     }
 
     function estimateLabelWidth(label, fontSize) {
@@ -2290,12 +2300,21 @@
     }
 
     function fadedNodeColor(depth) {
-      if (depth < FADED_DEPTH_COLORS.length) {
-        return FADED_DEPTH_COLORS[depth];
+      const palette = appState.themeMode === "dark" ? DARK_FADED_DEPTH_COLORS : FADED_DEPTH_COLORS;
+      if (depth < palette.length) {
+        return palette[depth];
       }
-      const step = Math.min(depth - FADED_DEPTH_COLORS.length, 8);
-      const tone = 208 + step * 5;
+      const step = Math.min(depth - palette.length, 8);
+      const tone = appState.themeMode === "dark"
+        ? Math.max(62, 86 - step * 3)
+        : 208 + step * 5;
       return `rgb(${tone}, ${tone}, ${tone})`;
+    }
+
+    function fadedNodeStrokeColor() {
+      return appState.themeMode === "dark"
+        ? "rgba(243, 233, 219, 0.14)"
+        : "#d7cdc0";
     }
 
     function getDepth(targetId) {
@@ -2416,7 +2435,7 @@
         }
         const isSelected = selectedIds.has(node.id);
         shape.setAttribute("fill", hasSelection && !isSelected ? fadedNodeColor(getDepth(node.id)) : colorForDepth(getDepth(node.id)));
-        shape.setAttribute("stroke", node.today ? "#a74826" : hasSelection && !isSelected ? "#d7cdc0" : "rgba(47, 36, 27, 0.18)");
+        shape.setAttribute("stroke", node.today ? "#a74826" : hasSelection && !isSelected ? fadedNodeStrokeColor() : "rgba(47, 36, 27, 0.18)");
         if (node.today) {
           shape.setAttribute("stroke-width", "2.4");
         }
