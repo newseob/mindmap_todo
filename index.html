@@ -699,10 +699,25 @@
       margin-bottom: 2px;
     }
 
+    .all-tasks-panel-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
     .all-tasks-panel h2 {
       margin: 0;
       font-size: 0.98rem;
       line-height: 1.2;
+    }
+
+    .all-tasks-filter-btn {
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      line-height: 1;
+      box-shadow: none;
     }
 
     .all-tasks-project-section {
@@ -806,6 +821,15 @@
       outline: 2px solid var(--accent-strong);
       outline-offset: 2px;
       box-shadow: 0 14px 24px rgba(20, 16, 12, 0.28);
+    }
+
+    .all-task-item.filtered-out {
+      opacity: 0.34;
+    }
+
+    .all-task-item.filtered-out .all-task-main-button {
+      filter: grayscale(0.25) saturate(0.72);
+      box-shadow: none;
     }
 
     .all-task-row-actions {
@@ -1581,6 +1605,12 @@
       border-bottom: 1px solid var(--panel-border-strong);
     }
 
+    #allTasksContextMenu button:first-of-type {
+      margin-bottom: 0;
+      padding-bottom: 9px;
+      border-bottom: none;
+    }
+
     .context-menu button:nth-of-type(5) {
       margin-top: 6px;
       padding-top: 12px;
@@ -1792,7 +1822,10 @@
       </aside>
       <aside id="allTasksPanel" class="all-tasks-panel side-panel" aria-live="polite" hidden>
         <div class="today-panel-header">
-          <h2>전체 할일</h2>
+          <div class="all-tasks-panel-title">
+            <h2>전체 할일</h2>
+            <button id="allTasksTodayFilterBtn" class="secondary all-tasks-filter-btn" type="button" aria-pressed="false" aria-label="오늘할일만 보기">오늘할일만 강조</button>
+          </div>
         </div>
         <div id="allTasksProjectSection" class="all-tasks-project-section">
           <div class="project-trigger">
@@ -1881,6 +1914,9 @@
     </div>
     <div id="canvasContextMenu" class="context-menu" hidden>
       <button id="canvasContextAddBtn" type="button">새 노드 추가</button>
+    </div>
+    <div id="allTasksContextMenu" class="context-menu" hidden>
+      <button id="allTasksContextTodayBtn" type="button">오늘할일 체크</button>
     </div>
   </main>
   <script>
@@ -2024,6 +2060,7 @@
     const allTasksProjectList = document.getElementById("allTasksProjectList");
     const allTasksAddProjectBtn = document.getElementById("allTasksAddProjectBtn");
     const allTasksDeleteProjectBtn = document.getElementById("allTasksDeleteProjectBtn");
+    const allTasksTodayFilterBtn = document.getElementById("allTasksTodayFilterBtn");
     const allTasksList = document.getElementById("allTasksList");
     const openInfoWindowBtn = document.getElementById("openInfoWindowBtn");
     const infoModal = document.getElementById("infoModal");
@@ -2047,6 +2084,8 @@
     const nodeContextDeleteOnlyBtn = document.getElementById("nodeContextDeleteOnlyBtn");
     const canvasContextMenu = document.getElementById("canvasContextMenu");
     const canvasContextAddBtn = document.getElementById("canvasContextAddBtn");
+    const allTasksContextMenu = document.getElementById("allTasksContextMenu");
+    const allTasksContextTodayBtn = document.getElementById("allTasksContextTodayBtn");
     const connectModeBanner = document.getElementById("connectModeBanner");
     const projectToolbar = document.querySelector(".project-toolbar");
     const projectMenuBtn = document.getElementById("projectMenuBtn");
@@ -2075,6 +2114,7 @@
     let selectionBoxInfo = null;
     let contextMenuNodeId = null;
     let canvasContextPoint = null;
+    let allTasksContextNodeId = null;
     let isProjectMenuOpen = false;
     let isAllTasksProjectMenuOpen = false;
     let trayResizeTimer = null;
@@ -2258,6 +2298,7 @@
         listMode: Boolean(appState.listMode),
         miniModeTab: ["today", "memo", "all"].includes(appState.miniModeTab) ? appState.miniModeTab : "all",
         todayHighlightMode: Boolean(appState.todayHighlightMode),
+        allTasksTodayFilterMode: Boolean(appState.allTasksTodayFilterMode),
         todayPanelCollapsed: Boolean(appState.todayPanelCollapsed),
         memoPanelCollapsed: Boolean(appState.memoPanelCollapsed),
         memo: typeof appState.memo === "string" ? appState.memo : "",
@@ -2311,6 +2352,7 @@
         listMode: false,
         miniModeTab: "all",
         todayHighlightMode: false,
+        allTasksTodayFilterMode: false,
         todayPanelCollapsed: false,
         memoPanelCollapsed: false,
         memo: "",
@@ -2332,6 +2374,7 @@
         listMode: false,
         miniModeTab: "all",
         todayHighlightMode: false,
+        allTasksTodayFilterMode: false,
         todayPanelCollapsed: false,
         memoPanelCollapsed: false,
         memo: "",
@@ -2364,6 +2407,7 @@
         listMode: Boolean(rawState.listMode),
         miniModeTab: ["today", "memo", "all"].includes(rawState.miniModeTab) ? rawState.miniModeTab : "all",
         todayHighlightMode: Boolean(rawState.todayHighlightMode),
+        allTasksTodayFilterMode: Boolean(rawState.allTasksTodayFilterMode),
         todayPanelCollapsed: Boolean(rawState.todayPanelCollapsed),
         memoPanelCollapsed: Boolean(rawState.memoPanelCollapsed),
         memo: typeof rawState.memo === "string" ? rawState.memo : "",
@@ -3197,7 +3241,8 @@
           id: node.id,
           depth: depth - 1,
           text: node.label,
-          color: colorForDepth(depth)
+          color: colorForDepth(depth),
+          today: Boolean(node.today)
         });
       }
       node.children.forEach((child) => {
@@ -3226,6 +3271,7 @@
 
     function renderAllTasksList() {
       const items = getAllTaskItems();
+      const isTodayOnly = Boolean(appState.allTasksTodayFilterMode);
       if (!items.length) {
         allTasksList.innerHTML = '<p class="empty">아직 등록된 할일 노드가 없습니다.</p>';
         return;
@@ -3235,6 +3281,10 @@
       items.forEach((item) => {
         const entry = document.createElement("article");
         entry.className = `all-task-item${item.id === selectedId ? " selected" : ""}`;
+        entry.dataset.id = item.id;
+        if (isTodayOnly && !item.today) {
+          entry.classList.add("filtered-out");
+        }
         if (item.depth === 0) {
           entry.classList.add("group-start");
         }
@@ -3284,6 +3334,10 @@
       return Boolean(appState.todayHighlightMode);
     }
 
+    function isAllTasksTodayFilterActive() {
+      return Boolean(appState.allTasksTodayFilterMode);
+    }
+
     function isMiniModeActive() {
       return Boolean(appState.listMode) || Boolean(isViewportMiniMode);
     }
@@ -3312,6 +3366,9 @@
       todayHighlightBtn.classList.toggle("active", isTodayHighlightActive());
       todayHighlightBtn.setAttribute("aria-pressed", String(isTodayHighlightActive()));
       todayHighlightBtn.setAttribute("aria-label", isTodayHighlightActive() ? "오늘할일 강조 끄기" : "오늘할일만 강조해서 보기");
+      allTasksTodayFilterBtn.classList.toggle("active", isAllTasksTodayFilterActive());
+      allTasksTodayFilterBtn.setAttribute("aria-pressed", String(isAllTasksTodayFilterActive()));
+      allTasksTodayFilterBtn.setAttribute("aria-label", isAllTasksTodayFilterActive() ? "전체 할일 필터 해제" : "오늘할일만 보기");
     }
 
     function syncMemoPanelUI() {
@@ -3425,6 +3482,13 @@
     function toggleTodayHighlightMode() {
       pushUndoSnapshot();
       appState.todayHighlightMode = !appState.todayHighlightMode;
+      render();
+    }
+
+    function toggleAllTasksTodayFilterMode() {
+      pushUndoSnapshot();
+      appState.allTasksTodayFilterMode = !appState.allTasksTodayFilterMode;
+      hideAllTasksContextMenu();
       render();
     }
 
@@ -3833,6 +3897,11 @@
       toggleTodayForNode(selectedId);
     }
 
+    function hideAllTasksContextMenu() {
+      allTasksContextMenu.hidden = true;
+      allTasksContextNodeId = null;
+    }
+
     function hideNodeContextMenu() {
       nodeContextMenu.hidden = true;
       contextMenuNodeId = null;
@@ -3857,6 +3926,7 @@
 
     function showNodeContextMenu(clientX, clientY, nodeId) {
       hideCanvasContextMenu();
+      hideAllTasksContextMenu();
       contextMenuNodeId = nodeId;
       const isMultiContext = hasMultipleSelection() && selectedIds.has(nodeId);
       const current = findNode(nodeId)?.node;
@@ -3880,12 +3950,23 @@
 
     function showCanvasContextMenu(clientX, clientY) {
       hideNodeContextMenu();
+      hideAllTasksContextMenu();
       const point = toSvgPoint(clientX, clientY);
       canvasContextPoint = {
         x: (point.x - translate.x) / scale,
         y: (point.y - translate.y) / scale
       };
       positionContextMenu(canvasContextMenu, clientX, clientY);
+    }
+
+    function showAllTasksContextMenu(clientX, clientY, nodeId) {
+      hideNodeContextMenu();
+      hideCanvasContextMenu();
+      const current = findNode(nodeId)?.node;
+      if (!current) return;
+      allTasksContextNodeId = nodeId;
+      allTasksContextTodayBtn.textContent = current.today ? "오늘할일 해제" : "오늘할일 체크";
+      positionContextMenu(allTasksContextMenu, clientX, clientY);
     }
 
     function applyViewport() {
@@ -4127,12 +4208,15 @@
     });
 
     window.addEventListener("click", (event) => {
-      if (!nodeContextMenu.hidden && !event.target.closest("#nodeContextMenu")) {
-        hideNodeContextMenu();
-      }
-      if (!canvasContextMenu.hidden && !event.target.closest("#canvasContextMenu")) {
-        hideCanvasContextMenu();
-      }
+    if (!nodeContextMenu.hidden && !event.target.closest("#nodeContextMenu")) {
+      hideNodeContextMenu();
+    }
+    if (!canvasContextMenu.hidden && !event.target.closest("#canvasContextMenu")) {
+      hideCanvasContextMenu();
+    }
+    if (!allTasksContextMenu.hidden && !event.target.closest("#allTasksContextMenu")) {
+      hideAllTasksContextMenu();
+    }
     if (isProjectMenuOpen && !event.target.closest(".project-toolbar")) {
       closeProjectMenu();
     }
@@ -4171,6 +4255,7 @@
     todayBtn.addEventListener("click", toggleToday);
     todayPanelToggle.addEventListener("click", toggleTodayPanel);
     todayHighlightBtn.addEventListener("click", toggleTodayHighlightMode);
+    allTasksTodayFilterBtn.addEventListener("click", toggleAllTasksTodayFilterMode);
     miniTabTodayBtn.addEventListener("click", () => setMiniModeTab("today"));
     miniTabMemoBtn.addEventListener("click", () => setMiniModeTab("memo"));
     miniTabAllBtn.addEventListener("click", () => setMiniModeTab("all"));
@@ -4264,6 +4349,7 @@
       if (event.key === "Escape") {
         hideNodeContextMenu();
         hideCanvasContextMenu();
+        hideAllTasksContextMenu();
         closeProjectMenu();
         closeInfoWindow();
         closeSettingsWindow();
@@ -4341,6 +4427,13 @@
       addDetachedNodeAt(point.x, point.y);
     });
 
+    allTasksContextTodayBtn.addEventListener("click", () => {
+      const targetId = allTasksContextNodeId;
+      hideAllTasksContextMenu();
+      if (!targetId) return;
+      toggleTodayForNode(targetId);
+    });
+
     projectMenuBtn.addEventListener("click", () => {
       toggleProjectMenu();
     });
@@ -4398,6 +4491,19 @@
 
       setSingleSelectedId(targetId);
       centerOnNode(selectedId);
+    });
+
+    allTasksList.addEventListener("contextmenu", (event) => {
+      const entry = event.target.closest(".all-task-item");
+      if (!entry) return;
+      const targetId = entry.dataset.id;
+      if (!targetId) return;
+      const targetNode = findNode(targetId)?.node;
+      if (!targetNode) return;
+      event.preventDefault();
+      setSingleSelectedId(targetId);
+      render();
+      showAllTasksContextMenu(event.clientX, event.clientY, targetId);
     });
 
     if ("serviceWorker" in navigator && window.isSecureContext) {
