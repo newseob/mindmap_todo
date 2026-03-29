@@ -1,5 +1,6 @@
 ﻿<!DOCTYPE html>
 <html lang="ko">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,7 +12,7 @@
   <link rel="icon" href="./mindmap_icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./mindmap_icon.svg">
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2116213869162668"
-       crossorigin="anonymous"></script>
+    crossorigin="anonymous"></script>
   <title>Mind Map Studio</title>
   <style>
     :root {
@@ -323,14 +324,14 @@
       left: auto;
       right: 16px;
       transform: none;
-      width: max(350px, calc(100% - 32px - var(--right-tray-width)));
+      width: 50vw;
     }
 
     .canvas-wrap:not(.tray-left) .bottom-bar {
       right: auto;
       left: 16px;
       transform: none;
-      width: max(350px, calc(100% - 32px - var(--right-tray-width)));
+      width: 50vw;
     }
 
     .right-tray {
@@ -344,13 +345,24 @@
       flex-direction: column;
       gap: 18px;
       overflow-y: auto;
-      overflow-x: auto;
+      overflow-x: hidden;
       padding: 22px 18px;
       background: var(--tray-surface);
       border-left: none;
       box-shadow: var(--tray-shadow);
       transition: opacity 180ms ease, transform 180ms ease, padding 180ms ease;
       z-index: 3;
+
+      /* Firefox */
+      scrollbar-width: none;
+
+      /* IE, Edge */
+      -ms-overflow-style: none;
+    }
+
+    .right-tray::-webkit-scrollbar {
+      display: none;
+      /* Chrome, Safari */
     }
 
     .canvas-wrap.tray-left .right-tray {
@@ -461,16 +473,14 @@
           rgba(20, 20, 20, 0.5) 0,
           rgba(20, 20, 20, 0.5) 33%,
           transparent 33%,
-          transparent 100%
-        ),
+          transparent 100%),
         linear-gradient(to right,
           transparent 0,
           transparent 31%,
           currentColor 31%,
           currentColor 33%,
           transparent 33%,
-          transparent 100%
-        );
+          transparent 100%);
       box-sizing: border-box;
     }
 
@@ -480,16 +490,14 @@
           transparent 0,
           transparent 67%,
           rgba(20, 20, 20, 0.5) 67%,
-          rgba(20, 20, 20, 0.5) 100%
-        ),
+          rgba(20, 20, 20, 0.5) 100%),
         linear-gradient(to right,
           transparent 0,
           transparent 67%,
           currentColor 67%,
           currentColor 69%,
           transparent 69%,
-          transparent 100%
-        );
+          transparent 100%);
     }
 
     :root[data-theme="dark"] .tray-side-toggle::before {
@@ -498,16 +506,14 @@
           rgba(255, 255, 255, 0.7) 0,
           rgba(255, 255, 255, 0.7) 33%,
           transparent 33%,
-          transparent 100%
-        ),
+          transparent 100%),
         linear-gradient(to right,
           transparent 0,
           transparent 31%,
           currentColor 31%,
           currentColor 33%,
           transparent 33%,
-          transparent 100%
-        );
+          transparent 100%);
     }
 
     :root[data-theme="dark"] .canvas-wrap.tray-left .tray-side-toggle::before {
@@ -516,16 +522,14 @@
           transparent 0,
           transparent 67%,
           rgba(255, 255, 255, 0.7) 67%,
-          rgba(255, 255, 255, 0.7) 100%
-        ),
+          rgba(255, 255, 255, 0.7) 100%),
         linear-gradient(to right,
           transparent 0,
           transparent 67%,
           currentColor 67%,
           currentColor 69%,
           transparent 69%,
-          transparent 100%
-        );
+          transparent 100%);
     }
 
     .list-mode-toggle::before {
@@ -566,8 +570,7 @@
           transparent 240deg 282deg,
           currentColor 282deg 300deg,
           transparent 300deg 342deg,
-          currentColor 342deg 360deg
-        );
+          currentColor 342deg 360deg);
       box-shadow: inset 0 0 0 1.8px currentColor;
     }
 
@@ -1081,7 +1084,7 @@
       }
     }
 
-    .right-tray > * {
+    .right-tray>* {
       pointer-events: auto;
     }
 
@@ -1152,6 +1155,13 @@
       order: 3;
     }
 
+    #nodeLabel {
+      flex: 0 1 40vw;
+      width: 40vw;
+      max-width: 520px;
+      min-width: 180px;
+    }
+
     #todayBtn {
       order: 4;
     }
@@ -1188,7 +1198,7 @@
       dominant-baseline: middle;
     }
 
-    .node > rect {
+    .node>rect {
       rx: 18;
       ry: 18;
       stroke: var(--node-stroke);
@@ -1197,27 +1207,27 @@
       transition: fill 140ms ease, stroke 140ms ease, stroke-width 140ms ease;
     }
 
-    .node > circle:not(.node-port) {
+    .node>circle:not(.node-port) {
       stroke: var(--node-stroke);
       stroke-width: 1;
       filter: var(--node-shadow);
       transition: fill 140ms ease, stroke 140ms ease, stroke-width 140ms ease;
     }
 
-    .node.selected > rect {
+    .node.selected>rect {
       stroke: var(--selected-stroke);
       stroke-width: 3.4;
       filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) drop-shadow(0 0 0 3px var(--selected-ring));
     }
 
-    .node.selected > circle:not(.node-port) {
+    .node.selected>circle:not(.node-port) {
       stroke: var(--selected-stroke);
       stroke-width: 3.4;
       filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) drop-shadow(0 0 0 3px var(--selected-ring));
     }
 
-    .node.connect-target > rect,
-    .node.connect-target > circle:not(.node-port) {
+    .node.connect-target>rect,
+    .node.connect-target>circle:not(.node-port) {
       stroke: #a74826;
       stroke-width: 4.2;
       filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) drop-shadow(0 0 0 4px rgba(167, 72, 38, 0.26));
@@ -1667,24 +1677,28 @@
         right: 16px;
         bottom: 16px;
         transform: none;
-        width: calc(100% - 32px);
+        width: 50vw;
+        max-width: 700px;
+        min-width: 300px;
         flex-wrap: wrap;
         gap: 8px;
-        padding: 10px;
+        margin: 0 auto;
       }
 
       .canvas-wrap.tray-left .bottom-bar {
         left: auto;
         right: 16px;
         transform: none;
-        width: max(350px, calc(100% - 32px - var(--right-tray-width)));
+        width: 50vw;
+        max-width: 700px;
       }
 
       .canvas-wrap:not(.tray-left) .bottom-bar {
         right: auto;
         left: 16px;
         transform: none;
-        width: max(350px, calc(100% - 32px - var(--right-tray-width)));
+        width: 50vw;
+        max-width: 700px;
       }
 
       .bottom-bar .label {
@@ -1771,10 +1785,12 @@
     }
   </style>
 </head>
+
 <body>
   <main class="canvas-wrap">
     <section class="canvas-stage">
-      <div id="connectModeBanner" class="connect-mode-banner" hidden>노드 연결 모드입니다. 연결할 부모 노드를 선택하거나 빈 공간 클릭, Esc로 취소하세요.</div>
+      <div id="connectModeBanner" class="connect-mode-banner" hidden>노드 연결 모드입니다. 연결할 부모 노드를 선택하거나 빈 공간 클릭, Esc로 취소하세요.
+      </div>
 
       <svg id="mindmap" viewBox="0 0 1400 900" aria-label="mind map canvas">
         <g id="viewport">
@@ -1796,10 +1812,14 @@
       </div>
     </section>
     <div class="tray-controls" aria-label="트레이 제어">
-      <button id="trayToggleBtn" class="tray-toggle secondary" type="button" aria-expanded="true" aria-controls="rightTray" aria-label="우측 트레이 숨기기"></button>
-      <button id="traySideToggleBtn" class="tray-toggle tray-side-toggle secondary" type="button" aria-label="트레이를 왼쪽으로 이동"></button>
-      <button id="listModeToggleBtn" class="tray-toggle list-mode-toggle secondary" type="button" aria-label="목록 모드 켜기"></button>
-      <button id="settingsToggleBtn" class="tray-toggle settings-toggle secondary" type="button" aria-label="설정 열기"></button>
+      <button id="trayToggleBtn" class="tray-toggle secondary" type="button" aria-expanded="true"
+        aria-controls="rightTray" aria-label="우측 트레이 숨기기"></button>
+      <button id="traySideToggleBtn" class="tray-toggle tray-side-toggle secondary" type="button"
+        aria-label="트레이를 왼쪽으로 이동"></button>
+      <button id="listModeToggleBtn" class="tray-toggle list-mode-toggle secondary" type="button"
+        aria-label="목록 모드 켜기"></button>
+      <button id="settingsToggleBtn" class="tray-toggle settings-toggle secondary" type="button"
+        aria-label="설정 열기"></button>
     </div>
     <aside id="rightTray" class="right-tray" aria-label="우측 트레이">
       <aside class="project-toolbar side-panel" aria-live="polite">
@@ -1808,7 +1828,8 @@
             <span class="project-title">프로젝트 :</span>
             <span id="currentProjectName" class="project-current">프로젝트 1</span>
           </div>
-          <button id="projectMenuBtn" class="today-toggle panel-toggle" type="button" aria-expanded="false" aria-controls="projectPanel" aria-label="프로젝트 목록 열기"></button>
+          <button id="projectMenuBtn" class="today-toggle panel-toggle" type="button" aria-expanded="false"
+            aria-controls="projectPanel" aria-label="프로젝트 목록 열기"></button>
         </div>
         <div id="projectPanel" class="project-panel" hidden>
           <div id="projectList" class="project-list"></div>
@@ -1825,24 +1846,29 @@
           <button id="miniTabMemoBtn" class="mini-mode-tab secondary" type="button">메모</button>
         </div>
         <div id="listModeTopbar" class="list-mode-topbar">
-          <button id="listModeSettingsBtn" class="tray-toggle settings-toggle secondary" type="button" aria-label="설정 열기" title="설정"></button>
-          <button id="mindmapModeBtn" class="tray-toggle tray-side-toggle secondary" type="button" aria-label="마인드맵 모드로 돌아가기" title="마인드맵 모드"></button>
+          <button id="listModeSettingsBtn" class="tray-toggle settings-toggle secondary" type="button"
+            aria-label="설정 열기" title="설정"></button>
+          <button id="mindmapModeBtn" class="tray-toggle tray-side-toggle secondary" type="button"
+            aria-label="마인드맵 모드로 돌아가기" title="마인드맵 모드"></button>
         </div>
       </div>
       <aside id="todayPanel" class="today-panel side-panel collapsible-panel" aria-live="polite">
         <div class="today-panel-header">
           <div class="today-panel-title">
             <h2>오늘할일</h2>
-            <button id="todayHighlightBtn" class="today-highlight-toggle" type="button" aria-pressed="false" aria-label="오늘할일만 강조해서 보기"></button>
+            <button id="todayHighlightBtn" class="today-highlight-toggle" type="button" aria-pressed="false"
+              aria-label="오늘할일만 강조해서 보기"></button>
           </div>
-          <button id="todayPanelToggle" class="today-toggle panel-toggle" type="button" aria-expanded="true" aria-label="오늘할일 숨기기"></button>
+          <button id="todayPanelToggle" class="today-toggle panel-toggle" type="button" aria-expanded="true"
+            aria-label="오늘할일 숨기기"></button>
         </div>
         <div id="todayList" class="today-list panel-body"></div>
       </aside>
       <aside id="memoPanel" class="memo-panel side-panel collapsible-panel" aria-live="polite">
         <div class="today-panel-header">
           <h2>메모</h2>
-          <button id="memoPanelToggle" class="today-toggle panel-toggle" type="button" aria-expanded="true" aria-label="메모 숨기기"></button>
+          <button id="memoPanelToggle" class="today-toggle panel-toggle" type="button" aria-expanded="true"
+            aria-label="메모 숨기기"></button>
         </div>
         <div class="panel-body">
           <textarea id="memoInput" class="memo-input" placeholder="오늘할일과 함께 참고할 메모를 적어두세요."></textarea>
@@ -1852,14 +1878,16 @@
         <div class="today-panel-header">
           <div class="all-tasks-panel-title">
             <h2>전체 할일</h2>
-            <button id="allTasksTodayFilterBtn" class="secondary all-tasks-filter-btn" type="button" aria-pressed="false" aria-label="오늘할일만 보기">오늘할일만 강조</button>
+            <button id="allTasksTodayFilterBtn" class="secondary all-tasks-filter-btn" type="button"
+              aria-pressed="false" aria-label="오늘할일만 보기">오늘할일만 강조</button>
           </div>
         </div>
         <div id="allTasksProjectSection" class="all-tasks-project-section">
           <div class="project-trigger">
             <span class="project-title">프로젝트 :</span>
             <span id="allTasksCurrentProjectName" class="project-current">프로젝트 1</span>
-            <button id="allTasksProjectMenuBtn" class="today-toggle panel-toggle" type="button" aria-expanded="false" aria-controls="allTasksProjectPanel" aria-label="프로젝트 목록 열기"></button>
+            <button id="allTasksProjectMenuBtn" class="today-toggle panel-toggle" type="button" aria-expanded="false"
+              aria-controls="allTasksProjectPanel" aria-label="프로젝트 목록 열기"></button>
           </div>
           <div id="allTasksProjectPanel" class="project-panel" hidden>
             <div id="allTasksProjectList" class="project-list"></div>
@@ -1910,9 +1938,12 @@
             <h3>테마 설정</h3>
             <p>시스템 설정을 따르거나, 앱 테마를 라이트 또는 다크로 직접 고정할 수 있습니다.</p>
             <div class="settings-theme-options">
-              <button id="themeSystemBtn" class="secondary settings-theme-option" type="button" data-theme-preference="system">시스템</button>
-              <button id="themeLightBtn" class="secondary settings-theme-option" type="button" data-theme-preference="light">라이트</button>
-              <button id="themeDarkBtn" class="secondary settings-theme-option" type="button" data-theme-preference="dark">다크</button>
+              <button id="themeSystemBtn" class="secondary settings-theme-option" type="button"
+                data-theme-preference="system">시스템</button>
+              <button id="themeLightBtn" class="secondary settings-theme-option" type="button"
+                data-theme-preference="light">라이트</button>
+              <button id="themeDarkBtn" class="secondary settings-theme-option" type="button"
+                data-theme-preference="dark">다크</button>
             </div>
           </div>
           <div class="settings-grid">
@@ -2005,7 +2036,7 @@
       "#575757"
     ];
 
-        const sampleData = {
+    const sampleData = {
       id: crypto.randomUUID(),
       label: "새 프로젝트",
       x: 700,
@@ -4236,22 +4267,22 @@
     });
 
     window.addEventListener("click", (event) => {
-    if (!nodeContextMenu.hidden && !event.target.closest("#nodeContextMenu")) {
-      hideNodeContextMenu();
-    }
-    if (!canvasContextMenu.hidden && !event.target.closest("#canvasContextMenu")) {
-      hideCanvasContextMenu();
-    }
-    if (!allTasksContextMenu.hidden && !event.target.closest("#allTasksContextMenu")) {
-      hideAllTasksContextMenu();
-    }
-    if (isProjectMenuOpen && !event.target.closest(".project-toolbar")) {
-      closeProjectMenu();
-    }
+      if (!nodeContextMenu.hidden && !event.target.closest("#nodeContextMenu")) {
+        hideNodeContextMenu();
+      }
+      if (!canvasContextMenu.hidden && !event.target.closest("#canvasContextMenu")) {
+        hideCanvasContextMenu();
+      }
+      if (!allTasksContextMenu.hidden && !event.target.closest("#allTasksContextMenu")) {
+        hideAllTasksContextMenu();
+      }
+      if (isProjectMenuOpen && !event.target.closest(".project-toolbar")) {
+        closeProjectMenu();
+      }
 
-    if (isAllTasksProjectMenuOpen && !event.target.closest(".all-tasks-project-section")) {
-      closeAllTasksProjectMenu();
-    }
+      if (isAllTasksProjectMenuOpen && !event.target.closest(".all-tasks-project-section")) {
+        closeAllTasksProjectMenu();
+      }
       if (!infoModal.hidden && event.target === infoModal) {
         closeInfoWindow();
       }
@@ -4546,5 +4577,5 @@
     centerOnNode(state.id);
   </script>
 </body>
-</html>
 
+</html>
