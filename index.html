@@ -2130,7 +2130,7 @@
     let hoverPort = null;
     let undoStack = [];
     let memoHistorySnapshot = null;
-    let isViewportMiniMode = window.innerWidth <= AUTO_MINI_MODE_MAX_WIDTH || window.innerHeight <= AUTO_MINI_MODE_MAX_HEIGHT;
+    let isViewportMiniMode = window.innerWidth <= AUTO_MINI_MODE_MAX_WIDTH && window.innerHeight <= AUTO_MINI_MODE_MAX_HEIGHT;
 
     function createHistorySnapshot() {
       return {
@@ -3529,7 +3529,7 @@
     }
 
     function syncAutoMiniMode() {
-      const nextIsViewportMiniMode = window.innerWidth <= AUTO_MINI_MODE_MAX_WIDTH || window.innerHeight <= AUTO_MINI_MODE_MAX_HEIGHT;
+      const nextIsViewportMiniMode = window.innerWidth <= AUTO_MINI_MODE_MAX_WIDTH && window.innerHeight <= AUTO_MINI_MODE_MAX_HEIGHT;
       if (nextIsViewportMiniMode === isViewportMiniMode) return;
       isViewportMiniMode = nextIsViewportMiniMode;
       render();
