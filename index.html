@@ -1214,6 +1214,7 @@
       transition: fill 140ms ease, stroke 140ms ease, stroke-width 140ms ease;
     }
 
+
     .node.selected>rect {
       stroke: var(--selected-stroke);
       stroke-width: 3.4;
@@ -2012,30 +2013,30 @@
       "#757575"
     ];
     const FADED_DEPTH_COLORS = [
-      "#dfb8b8",
-      "#e0c2b6",
-      "#dfd0a2",
-      "#c1d3ba",
-      "#bad3cf",
-      "#bfd0e2",
-      "#c0c4df",
-      "#cdc0de",
-      "#dabfd0",
-      "#c9c9c9"
-    ];
-    const DARK_FADED_DEPTH_COLORS = [
-      "#704b4b",
-      "#735446",
-      "#726641",
-      "#53664b",
-      "#45635f",
-      "#4b6073",
-      "#4d5074",
-      "#5f4f78",
-      "#704f67",
-      "#575757"
+      "rgba(223,184,184,0.6)",
+      "rgba(224,194,182,0.6)",
+      "rgba(223,208,162,0.6)",
+      "rgba(193,211,186,0.6)",
+      "rgba(186,211,207,0.6)",
+      "rgba(191,208,226,0.6)",
+      "rgba(192,196,223,0.6)",
+      "rgba(205,192,222,0.6)",
+      "rgba(218,191,208,0.6)",
+      "rgba(201,201,201,0.6)"
     ];
 
+    const DARK_FADED_DEPTH_COLORS = [
+      "rgba(112,75,75,0.6)",
+      "rgba(115,84,70,0.6)",
+      "rgba(114,102,65,0.6)",
+      "rgba(83,102,75,0.6)",
+      "rgba(69,99,95,0.6)",
+      "rgba(75,96,115,0.6)",
+      "rgba(77,80,116,0.6)",
+      "rgba(95,79,120,0.6)",
+      "rgba(112,79,103,0.6)",
+      "rgba(87,87,87,0.6)"
+    ];
     const sampleData = {
       id: crypto.randomUUID(),
       label: "새 프로젝트",
@@ -3074,6 +3075,7 @@
         text.setAttribute("y", String(isRoot ? metrics.radius + 2 : metrics.height / 2 + 2));
         text.setAttribute("font-size", String(metrics.fontSize));
         text.textContent = node.label;
+        text.style.opacity = shouldFadeNode ? "0.35" : "1";
 
         group.append(shape, text);
 
